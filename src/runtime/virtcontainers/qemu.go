@@ -665,6 +665,16 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 
 	if hypervisorConfig.PCIeRootPort > 0 {
 		qemuConfig.Devices = q.arch.appendPCIeRootPortDevice(qemuConfig.Devices, hypervisorConfig.PCIeRootPort, memSize32bit, memSize64bit)
+		vfioDev := config.VFIODev{
+			BDF: "81:00.0",
+			Bus: "rp0",
+		}
+		qemuConfig.Devices = q.arch.appendVFIODevice(qemuConfig.Devices, vfioDev)
+		fwcfg := govmmQemu.FwCfg{
+			Name: "opt/ovmf/X-PciMmio64Mb",
+			Str:  "262144",
+		}
+		qemuConfig.FwCfg = append(qemuConfig.FwCfg, fwcfg)
 	}
 
 	q.qemuConfig = qemuConfig
@@ -829,9 +839,9 @@ func (q *qemu) StartVM(ctx context.Context, timeout int) error {
 	}
 	q.Logger().WithField("vm path", vmPath).Info("created vm path")
 	// append logfile only on debug
-	if q.config.Debug {
-		q.qemuConfig.LogFile = filepath.Join(vmPath, "qemu.log")
-	}
+	//if q.config.Debug {
+	q.qemuConfig.LogFile = filepath.Join(vmPath, "qemu.log")
+	//}
 
 	defer func() {
 		if err != nil {
@@ -922,6 +932,8 @@ func (q *qemu) waitVM(ctx context.Context, timeout int) error {
 	span, _ := katatrace.Trace(ctx, q.Logger(), "waitVM", qemuTracingTags, map[string]string{"sandbox_id": q.id})
 	defer span.End()
 
+	q.Logger().Infof("### DEBUG waitVM:timeout=%v", timeout)
+
 	if timeout < 0 {
 		return fmt.Errorf("Invalid timeout %ds", timeout)
 	}
@@ -933,10 +945,13 @@ func (q *qemu) waitVM(ctx context.Context, timeout int) error {
 	var ver *govmmQemu.QMPVersion
 	var err error
 
+	q.Logger().Infof("### DEBUG waitVM:948")
+
 	// clear any possible old state before trying to connect again.
 	q.qmpShutdown()
 	timeStart := time.Now()
 	for {
+		q.Logger().Infof("### DEBUG waitVM:954")
 		disconnectCh = make(chan struct{})
 		qmp, ver, err = govmmQemu.QMPStart(q.qmpMonitorCh.ctx, q.qmpMonitorCh.path, cfg, disconnectCh)
 		if err == nil {
@@ -944,11 +959,19 @@ func (q *qemu) waitVM(ctx context.Context, timeout int) error {
 		}
 
 		if int(time.Since(timeStart).Seconds()) > timeout {
+			q.Logger().Infof("### DEBUG waitVM:962")
 			return fmt.Errorf("Failed to connect to QEMU instance (timeout %ds): %v", timeout, err)
 		}
 
-		time.Sleep(time.Duration(50) * time.Millisecond)
+		q.Logger().Infof("### DEBUG sleeping=%v", time.Duration(500)*time.Millisecond)
+
+		time.Sleep(time.Duration(500) * time.Millisecond)
 	}
+	secs := time.Duration(30) * time.Second
+	q.Logger().Infof("### DEBUG waitVM:971 sleeping=%v", secs)
+	time.Sleep(secs)
+
+	q.Logger().Infof("### DEBUG waitVM:974")
 	q.qmpMonitorCh.qmp = qmp
 	q.qmpMonitorCh.disconn = disconnectCh
 	defer q.qmpShutdown()

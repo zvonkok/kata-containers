@@ -34,6 +34,7 @@ import (
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/utils"
 
 	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -719,7 +720,7 @@ func (k *kataAgent) startSandbox(ctx context.Context, sandbox *Sandbox) error {
 		return err
 	}
 
-	// Check grpc server is serving
+	// Check grpc server is servin
 	if err = k.check(ctx); err != nil {
 		return err
 	}
@@ -1164,6 +1165,7 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 		}
 	}()
 
+	k.Logger().Infof("### DEBUG createContainer:1168")
 	// Share the container rootfs -- if its block based, we'll receive a non-nil storage object representing
 	// the block device for the rootfs, which us utilized for mounting in the guest. This'll be handled
 	// already for non-block based rootfs
@@ -1178,6 +1180,8 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 		// (kataGuestSharedDir/ctrID/
 		ctrStorages = append(ctrStorages, sharedRootfs.storage)
 	}
+
+	k.Logger().Infof("### DEBUG createContainer:1183")
 
 	ociSpec := c.GetPatchedOCISpec()
 	if ociSpec == nil {
@@ -1200,6 +1204,7 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 	if err != nil {
 		return nil, err
 	}
+	k.Logger().Infof("### DEBUG createContainer:1207")
 
 	ctrStorages = append(ctrStorages, epheStorages...)
 
@@ -1216,7 +1221,7 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 	}
 
 	ctrStorages = append(ctrStorages, localStorages...)
-
+	k.Logger().Infof("### DEBUG createContainer:1224")
 	// We replace all OCI mount sources that match our container mount
 	// with the right source path (The guest one).
 	if err = k.replaceOCIMountSource(ociSpec, sharedDirMounts); err != nil {
@@ -1245,12 +1250,15 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 		return nil, err
 	}
 
+	k.Logger().Infof("### DEBUG createContainer:1253")
+
 	// We need to give the OCI spec our absolute rootfs path in the guest.
 	grpcSpec.Root.Path = sharedRootfs.guestPath
 
 	sharedPidNs := k.handlePidNamespace(grpcSpec, sandbox)
 
 	if !sandbox.config.DisableGuestSeccomp && !sandbox.seccompSupported {
+		k.Logger().Infof("### DEBUG return createContainer:1261")
 		return nil, fmt.Errorf("Seccomp profiles are passed to the virtual machine, but the Kata agent does not support seccomp")
 	}
 
@@ -1268,10 +1276,12 @@ func (k *kataAgent) createContainer(ctx context.Context, sandbox *Sandbox, c *Co
 		OCI:          grpcSpec,
 		SandboxPidns: sharedPidNs,
 	}
-
+	k.Logger().Infof("### DEBUG createContainer:1279 %v", grpcSpec)
 	if _, err = k.sendReq(ctx, req); err != nil {
 		return nil, err
 	}
+
+	k.Logger().Infof("### DEBUG createContainer:1283")
 
 	return buildProcessFromExecID(req.ExecId)
 }
@@ -1825,6 +1835,7 @@ func (k *kataAgent) disconnect(ctx context.Context) error {
 
 // check grpc server is serving
 func (k *kataAgent) check(ctx context.Context) error {
+	k.Logger().Info("### DEBUG: check k.sendReq")
 	_, err := k.sendReq(ctx, &grpc.CheckRequest{})
 	if err != nil {
 		err = fmt.Errorf("Failed to Check if grpc server is working: %s", err)
@@ -2001,6 +2012,7 @@ func (k *kataAgent) getReqContext(ctx context.Context, reqName string) (newCtx c
 }
 
 func (k *kataAgent) sendReq(spanCtx context.Context, request interface{}) (interface{}, error) {
+	k.Logger().Info("### DEBUG: sendReq")
 	start := time.Now()
 
 	if err := k.connect(spanCtx); err != nil {

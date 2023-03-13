@@ -162,6 +162,8 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec specs.Spec, runtimeCo
 	ociSpec.Annotations["nerdctl/network-namespace"] = sandboxConfig.NetworkConfig.NetworkID
 	sandboxConfig.Annotations["nerdctl/network-namespace"] = ociSpec.Annotations["nerdctl/network-namespace"]
 
+	kataUtilsLogger.Infof("### DEBUG CreateSandbox:165")
+
 	// Run pre-start OCI hooks, in the runtime namespace.
 	if err := PreStartHooks(ctx, ociSpec, containerID, bundlePath); err != nil {
 		return nil, vc.Process{}, err
@@ -171,12 +173,12 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec specs.Spec, runtimeCo
 	if err := CreateRuntimeHooks(ctx, ociSpec, containerID, bundlePath); err != nil {
 		return nil, vc.Process{}, err
 	}
-
+	kataUtilsLogger.Infof("### DEBUG CreateSandbox:176")
 	sandbox, err := vci.CreateSandbox(ctx, sandboxConfig)
 	if err != nil {
 		return nil, vc.Process{}, err
 	}
-
+	kataUtilsLogger.Infof("### DEBUG CreateSandbox:181")
 	sid := sandbox.ID()
 	kataUtilsLogger = kataUtilsLogger.WithField("sandbox", sid)
 	katatrace.AddTags(span, "sandbox_id", sid)

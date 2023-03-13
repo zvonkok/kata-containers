@@ -60,6 +60,8 @@ func runHook(ctx context.Context, spec specs.Spec, hook specs.Hook, cid, bundleP
 		Stderr: &stderr,
 	}
 
+	hookLogger().Infof("### DEBUG runHook:63 %v", cmd)
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -126,7 +128,7 @@ func PreStartHooks(ctx context.Context, spec specs.Spec, cid, bundlePath string)
 	if spec.Hooks == nil {
 		return nil
 	}
-
+	hookLogger().Infof("### DEBUG PreStartHooks:131")
 	return runHooks(ctx, spec, spec.Hooks.Prestart, cid, bundlePath, "pre-start")
 }
 

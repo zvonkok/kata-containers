@@ -880,11 +880,15 @@ func (c *Container) create(ctx context.Context) (err error) {
 	// inside the VM
 	c.getSystemMountInfo()
 
+	c.Logger().Infof("### DEBUG create:883 container.go")
+
 	process, err := c.sandbox.agent.createContainer(ctx, c.sandbox, c)
 	if err != nil {
 		return err
 	}
 	c.process = *process
+
+	c.Logger().Infof("### DEBUG create:891 container.go")
 
 	if err = c.setContainerState(types.StateReady); err != nil {
 		return
