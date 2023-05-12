@@ -219,6 +219,7 @@ func loadRuntimeConfig(s *service, r *taskAPI.CreateTaskRequest, anno map[string
 		return s.config, nil
 	}
 	configPath := oci.GetSandboxConfigPath(anno)
+	shimLog.Info("### anno configPath: ", configPath)
 	if configPath == "" && r.Options != nil {
 		v, err := typeurl.UnmarshalAny(r.Options)
 		if err != nil {
@@ -229,6 +230,8 @@ func loadRuntimeConfig(s *service, r *taskAPI.CreateTaskRequest, anno map[string
 		// and we'll ignore it.
 		if ok {
 			configPath = option.ConfigPath
+			shimLog.Info("### cri configPath: ", configPath)
+
 		} else {
 			// Some versions of containerd, such as 1.4.3, and 1.4.4
 			// still rely on the runtime options coming from
@@ -238,6 +241,7 @@ func loadRuntimeConfig(s *service, r *taskAPI.CreateTaskRequest, anno map[string
 			oldOption, ok := v.(*oldcrioption.Options)
 			if ok {
 				configPath = oldOption.ConfigPath
+				shimLog.Info("### oldcri configPath: ", configPath)
 			}
 		}
 	}
@@ -245,6 +249,7 @@ func loadRuntimeConfig(s *service, r *taskAPI.CreateTaskRequest, anno map[string
 	// Try to get the config file from the env KATA_CONF_FILE
 	if configPath == "" {
 		configPath = os.Getenv("KATA_CONF_FILE")
+		shimLog.Info("### KATA_CONF_FILE configPath: ", configPath)
 	}
 
 	_, runtimeConfig, err := katautils.LoadConfiguration(configPath, false)

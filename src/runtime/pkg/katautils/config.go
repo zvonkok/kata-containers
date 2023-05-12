@@ -1485,7 +1485,7 @@ func decodeConfig(configPath string) (tomlConfig, string, error) {
 	} else {
 		resolved, err = ResolvePath(configPath)
 	}
-
+	kataUtilsLogger.Info("### resolved configPath: ", resolved)
 	if err != nil {
 		return tomlConf, "", fmt.Errorf("Cannot find usable config file (%v)", err)
 	}
