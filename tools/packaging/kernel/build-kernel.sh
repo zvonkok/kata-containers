@@ -198,7 +198,7 @@ get_major_kernel_version() {
 #
 get_kernel_frag_path() {
 	local arch_path="$1"
-	local common_path="${arch_path}/../common"
+	local common_path="${arch_path}/../common" 
 	local gpu_path="${arch_path}/../gpu"
 
 	local kernel_path="$2"

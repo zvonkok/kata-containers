@@ -449,6 +449,7 @@ build_rootfs_distro()
 			--env CI="${CI}" \
 			--env KERNEL_MODULES_DIR="${KERNEL_MODULES_DIR}" \
 			--env LIBC="${LIBC}" \
+			--env GPU_VENDOR="${GPU_VENDOR}" \
 			--env EXTRA_PKGS="${EXTRA_PKGS}" \
 			--env OSBUILDER_VERSION="${OSBUILDER_VERSION}" \
 			--env OS_VERSION="${OS_VERSION}" \
@@ -619,7 +620,7 @@ EOF
 			git checkout "${AGENT_VERSION}" && OK "git checkout successful" || die "checkout agent ${AGENT_VERSION} failed!"
 		fi
 		make clean
-		make LIBC=${LIBC} INIT=${AGENT_INIT} SECCOMP=${SECCOMP}
+		make -j $(nproc) LIBC=${LIBC} INIT=${AGENT_INIT} SECCOMP=${SECCOMP}
 		make install DESTDIR="${ROOTFS_DIR}" LIBC=${LIBC} INIT=${AGENT_INIT}
 		if [ "${SECCOMP}" == "yes" ]; then
 			rm -rf "${libseccomp_install_dir}" "${gperf_install_dir}"
@@ -697,6 +698,58 @@ EOF
 	create_summary_file "${ROOTFS_DIR}"
 }
 
+
+setup_nvidia_gpu_rootfs()
+{
+	set -x
+
+	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/chroot.sh"
+
+	echo "Setup NVIDIA GPU rootfs"
+	pushd "${ROOTFS_DIR}" >> /dev/null
+
+	cp ${nvidia_gpu_rootfs_chroot} ./root/chroot.sh
+	chmod +x ./root/chroot.sh	
+
+	BUILDDIR="/kata-containers/tools/packaging/kata-deploy/local-build/build/"
+
+	# We need the kernel packages for building the drivers cleanly will be
+	# deinstalled and removed from the roofs once the build finishes. 
+	# Depending on the architecture copy the right kenrel-headers
+	if [ "${ARCH}" == "x86_64" ]; then
+		cp ${BUILDDIR}/cc-sev-kernel/builddir/linux-*.deb ./root/.
+	elif [ "${ARCH}" == "aarch64" ]; then
+		cp ${BUILDDIR}/kernel-gpu/builddir/linux-*.deb ./root/.
+	else
+		die "Unsupported architecture=${ARCH} for NVIDIA GPU"
+	fi
+
+	# If we find a local downloaded run file build the kernel modules
+	# with it, otherwise use the distribution packages. Run files may have 
+	# more recent drivers available then the distribution packages.
+	local run_file_name="nvidia.run"
+	if [ -f ${BUILDDIR}/${run_file_name} ]; then 
+		cp -L ${BUILDDIR}/${run_file_name} ./root/${run_file_name}
+	fi
+
+	mount --rbind /dev ./dev
+	mount --make-rslave ./dev
+	mount -t proc /proc ./proc
+
+	local uname_r=$(uname -r)
+        chroot . /bin/bash -c "/root/chroot.sh ${uname_r} ${run_file_name} ${ARCH}"
+
+	umount -R ./dev
+	umount ./proc
+
+	# Remove artifacts needed for building the rootfs
+	rm -f ./root/chroot.sh
+	rm -f ./root/${run_file_name}
+	rm -f ./root/linux-*.deb
+
+	popd  >> /dev/null
+}
+
 parse_arguments()
 {
 	[ "$#" -eq 0 ] && usage && return 0
@@ -754,6 +807,7 @@ main()
 
 	init="${ROOTFS_DIR}/sbin/init"
 	setup_rootfs
+	setup_nvidia_gpu_rootfs
 }
 
 main $*

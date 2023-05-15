@@ -283,19 +283,28 @@ install_cc_image() {
 		&& return 0
 
 	info "Create CC image configured with AA_KBC=${AA_KBC}"
-	"${rootfs_builder}" \
+	EXTRA_PKGS="apt software-properties-common udev" OS_VERSION=jammy "${rootfs_builder}" \
 		--imagetype="${image_type}" \
 		--prefix="${cc_prefix}" \
 		--destdir="${destdir}" \
 		--image_initrd_suffix="${image_initrd_suffix}" \
-		--root_hash_suffix="${root_hash_suffix}"
+		--root_hash_suffix="${root_hash_suffix}" \
+		--gpuvendor="nvidia"
 }
 
-install_cc_sev_image() {
+install_cc_sev_initrd() {
 	AA_KBC="online_sev_kbc"
 	image_type="initrd"
 	install_cc_image "${AA_KBC}" "${image_type}" "sev" "" "sev"
 }
+
+install_cc_sev_image() {
+	AA_KBC="online_sev_kbc"
+	image_type="image"
+	install_cc_image "${AA_KBC}" "${image_type}" "sev" "" "sev"
+}
+
+
 
 install_cc_se_image() {
 	info "Create IBM SE image configured with AA_KBC=${AA_KBC}"
@@ -461,7 +470,7 @@ install_cc_tee_kernel() {
 	info "build initramfs for TEE kernel"
 	"${initramfs_builder}"
 	kernel_url="$(yq r $versions_yaml assets.kernel.${tee}.url)"
-	DESTDIR="${destdir}" PREFIX="${cc_prefix}" "${kernel_builder}" -x "${tee}" -v "${kernel_version}" -u "${kernel_url}"
+	DESTDIR="${destdir}" PREFIX="${cc_prefix}" "${kernel_builder}" -x "${tee}" -g nvidia -v "${kernel_version}" -u "${kernel_url}"
 }
 
 #Install CC kernel assert for Intel TDX
@@ -836,7 +845,9 @@ handle_build() {
 
 	cc-rootfs-initrd) install_cc_initrd ;;
 
-	cc-sev-rootfs-initrd) install_cc_sev_image ;;
+	cc-sev-rootfs-initrd) install_cc_sev_initrd ;;
+
+	cc-sev-rootfs-image) install_cc_sev_image ;;
 
 	cc-se-image) install_cc_se_image ;;
 

@@ -106,6 +106,10 @@ main() {
 	image_initrd_suffix=""
 	root_hash_suffix=""
 	builddir="${PWD}"
+
+	OS_VERSION=${OS_VERSION:-""}
+
+
 	while getopts "h-:" opt; do
 		case "$opt" in
 		-)
@@ -150,6 +154,9 @@ main() {
 			builddir=*)
 				builddir=${OPTARG#*=}
 				;;
+			gpuvendor=*)
+				gpu_vendor=${OPTARG#*=}
+				;;
 			*)
 				echo >&2 "ERROR: Invalid option -$opt${OPTARG}"
 				usage 1
@@ -163,6 +170,20 @@ main() {
 			;;
 		esac
 	done
+
+
+	if [[ "${OS_VERSION}" != "" ]]; then
+		img_os_version="${OS_VERSION}"
+		initrd_os_version="${OS_VERSION}"
+	fi
+
+	if [[ "${gpu_vendor}" != "none" ]]; then
+		image_name="kata-${img_distro}-${img_os_version}-${gpu_vendor}-gpu.${image_type}"
+		initrd_name="kata-${initrd_distro}-${initrd_os_version}-${gpu_vendor}-gpu.${image_type}"
+	fi
+
+
+
 	readonly destdir
 	readonly builddir
 
