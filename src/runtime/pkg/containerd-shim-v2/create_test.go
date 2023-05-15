@@ -17,14 +17,14 @@ import (
 	taskAPI "github.com/containerd/containerd/runtime/v2/task"
 	crioption "github.com/containerd/cri-containerd/pkg/api/runtimeoptions/v1"
 	"github.com/containerd/typeurl"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/stretchr/testify/assert"
-
+	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	ktu "github.com/kata-containers/kata-containers/src/runtime/pkg/katatestutils"
 	vc "github.com/kata-containers/kata-containers/src/runtime/virtcontainers"
 	vcAnnotations "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/compatoci"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/vcmock"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateSandboxSuccess(t *testing.T) {
@@ -308,6 +308,7 @@ func TestCreateContainerConfigFail(t *testing.T) {
 }
 
 func createAllRuntimeConfigFiles(dir, hypervisor string) (config string, err error) {
+	var coldPlugVFIO hv.PCIePort
 	if dir == "" {
 		return "", fmt.Errorf("BUG: need directory")
 	}
@@ -332,6 +333,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config string, err err
 	disableNewNetNs := false
 	sharedFS := "virtio-9p"
 	virtioFSdaemon := path.Join(dir, "virtiofsd")
+	coldPlugVFIO = hv.RootPort
 
 	configFileOptions := ktu.RuntimeConfigOptions{
 		Hypervisor:           "qemu",
@@ -350,6 +352,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config string, err err
 		DisableNewNetNs:      disableNewNetNs,
 		SharedFS:             sharedFS,
 		VirtioFSDaemon:       virtioFSdaemon,
+		ColdPlugVFIO:         coldPlugVFIO,
 	}
 
 	runtimeConfigFileData := ktu.MakeRuntimeConfigFileData(configFileOptions)

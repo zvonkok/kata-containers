@@ -7,6 +7,7 @@
 package persistapi
 
 import (
+	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -206,7 +207,7 @@ type HypervisorConfig struct {
 
 	// DisableVhostNet is used to indicate if host supports vhost_net
 	DisableVhostNet bool
-
+	ColdPlugVFIO    hv.PCIePort
 	// EnableVhostUserStore is used to indicate if host supports vhost-user-blk/scsi
 	EnableVhostUserStore bool
 }

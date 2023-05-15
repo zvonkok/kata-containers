@@ -84,6 +84,7 @@ type QemuState struct {
 	VirtiofsDaemonPid    int
 	PCIeRootPort         int
 	HotplugVFIOOnRootBus bool
+	ColdPlugVFIO         hv.PCIePort
 }
 
 // qemu is an Hypervisor interface implementation for the Linux qemu hypervisor.
@@ -280,7 +281,7 @@ func (q *qemu) setup(ctx context.Context, id string, hypervisorConfig *Hyperviso
 
 		q.state.HotplugVFIOOnRootBus = q.config.HotplugVFIOOnRootBus
 		q.state.PCIeRootPort = int(q.config.PCIeRootPort)
-
+		q.state.ColdPlugVFIO = q.config.ColdPlugVFIO
 		// The path might already exist, but in case of VM templating,
 		// we have to create it since the sandbox has not created it yet.
 		if err = utils.MkdirAllWithInheritedOwner(filepath.Join(q.config.RunStorePath, id), DirMode); err != nil {
@@ -732,7 +733,17 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 	if hypervisorConfig.PCIeRootPort > 0 {
 		qemuConfig.Devices = q.arch.appendPCIeRootPortDevice(qemuConfig.Devices, hypervisorConfig.PCIeRootPort, memSize32bit, memSize64bit)
 	}
-
+	// The default OVMF MMIO aperture is too small for some PCIe devices
+	// with huge BARs so we need to increase it.
+	// memSize64bit is in bytes, convert to MB, OVMF expects MB as a string
+	if strings.Contains(strings.ToLower(hypervisorConfig.FirmwarePath), "ovmf") {
+		pciMmio64Mb := fmt.Sprintf("%d", (memSize64bit / 1024 / 1024))
+		fwCfg := govmmQemu.FwCfg{
+			Name: "opt/ovmf/X-PciMmio64Mb",
+			Str:  pciMmio64Mb,
+		}
+		qemuConfig.FwCfg = append(qemuConfig.FwCfg, fwCfg)
+	}
 	q.qemuConfig = qemuConfig
 
 	q.virtiofsDaemon, err = q.createVirtiofsDaemon(hypervisorConfig.SharedPath)

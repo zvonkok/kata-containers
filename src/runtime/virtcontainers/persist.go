@@ -500,6 +500,7 @@ func loadSandboxConfig(id string) (*SandboxConfig, error) {
 		TxRateLimiterMaxRate:    hconf.TxRateLimiterMaxRate,
 		SGXEPCSize:              hconf.SGXEPCSize,
 		EnableAnnotations:       hconf.EnableAnnotations,
+		ColdPlugVFIO:            hconf.ColdPlugVFIO,
 	}
 
 	sconfig.AgentConfig = KataAgentConfig{

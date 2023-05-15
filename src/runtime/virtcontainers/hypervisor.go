@@ -389,6 +389,7 @@ type HypervisorConfig struct {
 	Gid                            uint32
 	SEVGuestPolicy                 uint32
 	SNPGuestPolicy                 uint64
+	ColdPlugVFIO                   hv.PCIePort
 	PCIeRootPort                   uint32
 	NumVCPUs                       uint32
 	RemoteHypervisorTimeout        uint32

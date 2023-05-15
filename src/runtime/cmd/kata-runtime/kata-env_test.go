@@ -19,15 +19,15 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	vc "github.com/kata-containers/kata-containers/src/runtime/virtcontainers"
-	vcUtils "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/utils"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
-
+	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katatestutils"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katautils"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/oci"
+	vc "github.com/kata-containers/kata-containers/src/runtime/virtcontainers"
+	vcUtils "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/utils"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 )
 
 var (
@@ -74,6 +74,7 @@ func createConfig(configPath string, fileData string) error {
 }
 
 func makeRuntimeConfig(prefixDir string) (configFile string, config oci.RuntimeConfig, err error) {
+	var coldPlugVFIO hv.PCIePort
 	const logPath = "/log/path"
 	hypervisorPath := filepath.Join(prefixDir, "hypervisor")
 	kernelPath := filepath.Join(prefixDir, "kernel")
@@ -86,6 +87,7 @@ func makeRuntimeConfig(prefixDir string) (configFile string, config oci.RuntimeC
 	enableIOThreads := true
 	hotplugVFIOOnRootBus := true
 	pcieRootPort := uint32(2)
+	coldPlugVFIO = hv.NoPort
 	disableNewNetNs := false
 	sharedFS := "virtio-9p"
 	virtioFSdaemon := filepath.Join(prefixDir, "virtiofsd")
@@ -130,6 +132,7 @@ func makeRuntimeConfig(prefixDir string) (configFile string, config oci.RuntimeC
 		EnableIOThreads:      enableIOThreads,
 		HotplugVFIOOnRootBus: hotplugVFIOOnRootBus,
 		PCIeRootPort:         pcieRootPort,
+		ColdPlugVFIO:         coldPlugVFIO,
 		DisableNewNetNs:      disableNewNetNs,
 		DefaultVCPUCount:     hypConfig.NumVCPUs,
 		DefaultMaxVCPUCount:  hypConfig.DefaultMaxVCPUs,
@@ -260,17 +263,17 @@ VERSION_ID="%s"
 
 func getExpectedHypervisor(config oci.RuntimeConfig) HypervisorInfo {
 	info := HypervisorInfo{
-		Version:           testHypervisorVersion,
-		Path:              config.HypervisorConfig.HypervisorPath,
-		MachineType:       config.HypervisorConfig.HypervisorMachineType,
-		BlockDeviceDriver: config.HypervisorConfig.BlockDeviceDriver,
-		Msize9p:           config.HypervisorConfig.Msize9p,
-		MemorySlots:       config.HypervisorConfig.MemSlots,
-		Debug:             config.HypervisorConfig.Debug,
-		EntropySource:     config.HypervisorConfig.EntropySource,
-		SharedFS:          config.HypervisorConfig.SharedFS,
-		VirtioFSDaemon:    config.HypervisorConfig.VirtioFSDaemon,
-
+		Version:              testHypervisorVersion,
+		Path:                 config.HypervisorConfig.HypervisorPath,
+		MachineType:          config.HypervisorConfig.HypervisorMachineType,
+		BlockDeviceDriver:    config.HypervisorConfig.BlockDeviceDriver,
+		Msize9p:              config.HypervisorConfig.Msize9p,
+		MemorySlots:          config.HypervisorConfig.MemSlots,
+		Debug:                config.HypervisorConfig.Debug,
+		EntropySource:        config.HypervisorConfig.EntropySource,
+		SharedFS:             config.HypervisorConfig.SharedFS,
+		VirtioFSDaemon:       config.HypervisorConfig.VirtioFSDaemon,
+		ColdPlugVFIO:         config.HypervisorConfig.ColdPlugVFIO,
 		HotplugVFIOOnRootBus: config.HypervisorConfig.HotplugVFIOOnRootBus,
 		PCIeRootPort:         config.HypervisorConfig.PCIeRootPort,
 	}

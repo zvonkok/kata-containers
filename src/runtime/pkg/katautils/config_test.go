@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/govmm"
+	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	ktu "github.com/kata-containers/kata-containers/src/runtime/pkg/katatestutils"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/oci"
 	vc "github.com/kata-containers/kata-containers/src/runtime/virtcontainers"
@@ -69,7 +70,8 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 	if hypervisor == "" {
 		return config, fmt.Errorf("BUG: need hypervisor")
 	}
-
+	var coldPlugVFIO hv.PCIePort
+	coldPlugVFIO = hv.RootPort
 	hypervisorPath := path.Join(dir, "hypervisor")
 	kernelPath := path.Join(dir, "kernel")
 	kernelParams := "foo=bar xyz"
@@ -106,6 +108,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		EnableIOThreads:      enableIOThreads,
 		HotplugVFIOOnRootBus: hotplugVFIOOnRootBus,
 		PCIeRootPort:         pcieRootPort,
+		ColdPlugVFIO:         coldPlugVFIO,
 		DisableNewNetNs:      disableNewNetNs,
 		DefaultVCPUCount:     defaultVCPUCount,
 		DefaultMaxVCPUCount:  defaultMaxVCPUCount,
@@ -169,6 +172,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		EnableIOThreads:       enableIOThreads,
 		HotplugVFIOOnRootBus:  hotplugVFIOOnRootBus,
 		PCIeRootPort:          pcieRootPort,
+		ColdPlugVFIO:          coldPlugVFIO,
 		Msize9p:               defaultMsize9p,
 		MemSlots:              defaultMemSlots,
 		EntropySource:         defaultEntropySource,
@@ -561,6 +565,7 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		BlockDeviceAIO:        defaultBlockDeviceAIO,
 		DisableGuestSeLinux:   defaultDisableGuestSeLinux,
 		SNPGuestPolicy:        defaultSNPGuestPolicy,
+		ColdPlugVFIO:          defaultColdPlugVFIO,
 	}
 
 	expectedAgentConfig := vc.KataAgentConfig{
@@ -594,7 +599,8 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 
 func TestNewQemuHypervisorConfig(t *testing.T) {
 	dir := t.TempDir()
-
+	var coldPlugVFIO hv.PCIePort
+	coldPlugVFIO = hv.RootPort
 	hypervisorPath := path.Join(dir, "hypervisor")
 	kernelPath := path.Join(dir, "kernel")
 	imagePath := path.Join(dir, "image")
@@ -627,6 +633,7 @@ func TestNewQemuHypervisorConfig(t *testing.T) {
 		SharedFS:              "virtio-fs",
 		VirtioFSDaemon:        filepath.Join(dir, "virtiofsd"),
 		BlockDeviceAIO:        blockDeviceAIO,
+		ColdPlugVFIO:          coldPlugVFIO,
 	}
 
 	files := []string{hypervisorPath, kernelPath, imagePath}

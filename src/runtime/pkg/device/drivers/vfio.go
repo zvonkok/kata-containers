@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -70,58 +69,9 @@ func (device *VFIODevice) Attach(ctx context.Context, devReceiver api.DeviceRece
 			device.bumpAttachCount(false)
 		}
 	}()
-
-	vfioGroup := filepath.Base(device.DeviceInfo.HostPath)
-	iommuDevicesPath := filepath.Join(config.SysIOMMUPath, vfioGroup, "devices")
-
-	deviceFiles, err := os.ReadDir(iommuDevicesPath)
+	device.VfioDevs, err = GetAllVFIODevicesFromIOMMUGroup(*device.DeviceInfo, false)
 	if err != nil {
 		return err
-	}
-
-	// Pass all devices in iommu group
-	for i, deviceFile := range deviceFiles {
-		//Get bdf of device eg 0000:00:1c.0
-		deviceBDF, deviceSysfsDev, vfioDeviceType, err := getVFIODetails(deviceFile.Name(), iommuDevicesPath)
-		if err != nil {
-			return err
-		}
-		id := utils.MakeNameID("vfio", device.DeviceInfo.ID+strconv.Itoa(i), maxDevIDSize)
-
-		var vfio config.VFIODev
-
-		switch vfioDeviceType {
-		case config.VFIOPCIDeviceNormalType, config.VFIOPCIDeviceMediatedType:
-			isPCIe := isPCIeDevice(deviceBDF)
-			// Do not directly assign to `vfio` -- need to access field still
-			vfioPCI := config.VFIOPCIDev{
-				ID:       id,
-				Type:     vfioDeviceType,
-				BDF:      deviceBDF,
-				SysfsDev: deviceSysfsDev,
-				IsPCIe:   isPCIe,
-				Class:    getPCIDeviceProperty(deviceBDF, PCISysFsDevicesClass),
-			}
-			if isPCIe {
-				vfioPCI.Bus = fmt.Sprintf("%s%d", pcieRootPortPrefix, len(AllPCIeDevs))
-				AllPCIeDevs[deviceBDF] = true
-			}
-			vfio = vfioPCI
-		case config.VFIOAPDeviceMediatedType:
-			devices, err := GetAPVFIODevices(deviceSysfsDev)
-			if err != nil {
-				return err
-			}
-			vfio = config.VFIOAPDev{
-				ID:        id,
-				SysfsDev:  deviceSysfsDev,
-				Type:      config.VFIOAPDeviceMediatedType,
-				APDevices: devices,
-			}
-		default:
-			return fmt.Errorf("Failed to append device: VFIO device type unrecognized")
-		}
-		device.VfioDevs = append(device.VfioDevs, &vfio)
 	}
 
 	coldPlug := device.DeviceInfo.ColdPlug
