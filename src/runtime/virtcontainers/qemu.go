@@ -1883,26 +1883,22 @@ func (q *qemu) hotplugVFIODevice(ctx context.Context, device *config.VFIODev, op
 			"hot-plug-vfio": q.state.HotPlugVFIO,
 			"device-info":   string(buf),
 		}).Info("Start hot-plug VFIO device")
-		// In case MachineType is q35, a PCIe device is hotplugged on
-		// a PCIe Root Port or alternatively on a PCIe Switch Port
-		if q.HypervisorConfig().HypervisorMachineType != QemuQ35 && q.HypervisorConfig().HypervisorMachineType != QemuVirt {
-			device.Bus = ""
+
+		var err error
+		// In case HotplugVFIOOnRootBus is true, devices are hotplugged on the root bus
+		// for pc machine type instead of bridge. This is useful for devices that require
+		// a large PCI BAR which is a currently a limitation with PCI bridges.
+		if q.state.HotPlugVFIO == config.RootPort || q.state.HotplugVFIOOnRootBus {
+			err = q.hotplugVFIODeviceRootPort(ctx, device)
+		} else if q.state.HotPlugVFIO == config.SwitchPort {
+			err = q.hotplugVFIODeviceSwitchPort(ctx, device)
 		} else {
-			var err error
-			// In case HotplugVFIOOnRootBus is true, devices are hotplugged on the root bus
-			// for pc machine type instead of bridge. This is useful for devices that require
-			// a large PCI BAR which is a currently a limitation with PCI bridges.
-			if q.state.HotPlugVFIO == config.RootPort || q.state.HotplugVFIOOnRootBus {
-				err = q.hotplugVFIODeviceRootPort(ctx, device)
-			} else if q.state.HotPlugVFIO == config.SwitchPort {
-				err = q.hotplugVFIODeviceSwitchPort(ctx, device)
-			} else {
-				err = q.hotplugVFIODeviceBridgePort(ctx, device)
-			}
-			if err != nil {
-				return err
-			}
+			err = q.hotplugVFIODeviceBridgePort(ctx, device)
 		}
+		if err != nil {
+			return err
+		}
+
 		// XXX: Depending on whether we're doing root port or
 		// bridge hotplug, and how the bridge is set up in
 		// other parts of the code, we may or may not already
