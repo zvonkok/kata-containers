@@ -18,6 +18,7 @@ build_agent_from_source() {
 	/usr/bin/install_libseccomp.sh /opt /opt
 
 	cd src/agent
+
 	DESTDIR=${DESTDIR} AGENT_POLICY=${AGENT_POLICY} PULL_TYPE=${PULL_TYPE} make
 	DESTDIR=${DESTDIR} AGENT_POLICY=${AGENT_POLICY} PULL_TYPE=${PULL_TYPE} make install
 }
