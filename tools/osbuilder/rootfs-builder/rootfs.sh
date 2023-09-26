@@ -10,6 +10,8 @@ set -o errtrace
 
 [ -n "$DEBUG" ] && set -x
 
+set -x
+
 script_name="${0##*/}"
 script_dir="$(dirname $(readlink -f $0))"
 AGENT_VERSION=${AGENT_VERSION:-}
@@ -39,6 +41,10 @@ PAUSE_IMAGE_TARBALL=${PAUSE_IMAGE_TARBALL:-""}
 lib_file="${script_dir}/../scripts/lib.sh"
 source "$lib_file"
 
+NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:?}
+nvidia_rootfs="${script_dir}/nvidia/nvidia_rootfs.sh"
+source "$nvidia_rootfs" 
+
 #For cross build
 CROSS_BUILD=${CROSS_BUILD:-false}
 BUILDX=""
@@ -57,6 +63,8 @@ if [ "${CROSS_BUILD}" == "true" ]; then
 		die "Could not find ${TARGET_ARCH}-linux-gnu-strip for cross build"
 	fi
 fi
+
+
 
 
 handle_error() {
@@ -427,13 +435,14 @@ build_rootfs_distro()
 		if [ -n "${IMAGE_REGISTRY}" ]; then
 			engine_build_args+=" --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY}"
 		fi
-
+		export DOCKER_BUILDKIT=1
 		# setup to install rust here
 		generate_dockerfile "${distro_config_dir}"
 		"$container_engine" build  \
 			${engine_build_args} \
 			--build-arg http_proxy="${http_proxy}" \
 			--build-arg https_proxy="${https_proxy}" \
+			--build-arg RUST_TOOLCHAIN="$(get_package_version_from_kata_yaml  "languages.rust.meta.newest-version")" \
 			-t "${image_name}" "${distro_config_dir}"
 
 		# fake mapping if KERNEL_MODULES_DIR is unset
@@ -508,6 +517,7 @@ build_rootfs_distro()
 			--env EXTRA_PKGS="${EXTRA_PKGS}" \
 			--env OSBUILDER_VERSION="${OSBUILDER_VERSION}" \
 			--env OS_VERSION="${OS_VERSION}" \
+			--env VARIANT="${VARIANT}" \
 			--env INSIDE_CONTAINER=1 \
 			--env SECCOMP="${SECCOMP}" \
 			--env SELINUX="${SELINUX}" \
@@ -517,6 +527,7 @@ build_rootfs_distro()
 			--env HOME="/root" \
 			--env AGENT_POLICY="${AGENT_POLICY}" \
 			--env CONFIDENTIAL_GUEST="${CONFIDENTIAL_GUEST}" \
+			--env NVIDIA_GPU_STACK="${NVIDIA_GPU_STACK}" \
 			-v "${repo_dir}":"/kata-containers" \
 			-v "${ROOTFS_DIR}":"/rootfs" \
 			-v "${script_dir}/../scripts":"/scripts" \
@@ -618,6 +629,7 @@ EOF
 	esac
 
 	info "Configure chrony file ${chrony_conf_file}"
+
 	cat >> "${chrony_conf_file}" <<EOF
 refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 # Step the system clock instead of slewing it if the adjustment is larger than
@@ -744,6 +756,7 @@ EOF
 	create_summary_file "${ROOTFS_DIR}"
 }
 
+
 parse_arguments()
 {
 	[ "$#" -eq 0 ] && usage && return 0
@@ -799,8 +812,23 @@ main()
 		prepare_overlay
 	fi
 
+
+
 	init="${ROOTFS_DIR}/sbin/init"
 	setup_rootfs
+
+	if [ "${VARIANT}" = "nvidia-gpu" ]; then
+		setup_nvidia_gpu_rootfs_stage_one 
+		setup_nvidia_gpu_rootfs_stage_two 
+		return $?
+	fi
+
+	if [ "${VARIANT}" = "nvidia-gpu-confidential" ]; then
+		setup_nvidia_gpu_rootfs_stage_one "confidential"
+		setup_nvidia_gpu_rootfs_stage_two "confidential" 
+		return $?
+	fi
+
 }
 
 main $*

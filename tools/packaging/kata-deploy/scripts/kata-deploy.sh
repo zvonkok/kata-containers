@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
+set -x
 set -o errexit
 set -o pipefail
 set -o nounset
@@ -462,7 +462,7 @@ function configure_containerd_runtime() {
 
 	# if we are running k0s auto containerd.toml generation, the base template is by default version 2
 	# we can safely assume to reference the newer version of cri
-	if grep -q "version = 2\>" $containerd_conf_file || [ "$1" == "k0s-worker" ] || [ "$1" == "k0s-controller" ]; then
+	if grep -q "version = 2\>" $containerd_conf_file || [ "$1" == "k0s-worker" ] || [ "$1" == "k0s-controller" ] || [ -n "${CONTAINERD_DROP_IN_CONF}" ]; then
 		pluginid=\"io.containerd.grpc.v1.cri\"
 	fi
 
@@ -501,7 +501,8 @@ function configure_containerd() {
 
 	mkdir -p /etc/containerd/
 
-	if [ -f "$containerd_conf_file" ]; then
+	
+	if [ -f "$containerd_conf_file" ] && [ -z ${CONTAINERD_DROP_IN_CONF} ]; then
 		# backup the config.toml only if a backup doesn't already exist (don't override original)
 		cp -n "$containerd_conf_file" "$containerd_conf_file_backup"
 	fi
@@ -616,6 +617,7 @@ function main() {
 	echo "* SNAPSHOTTER_HANDLER_MAPPING: ${SNAPSHOTTER_HANDLER_MAPPING}"
 	echo "* AGENT_HTTPS_PROXY: ${AGENT_HTTPS_PROXY}"
 	echo "* AGENT_NO_PROXY: ${AGENT_NO_PROXY}"
+	echo "* CONTAINERD_DROP_IN_CONF: ${CONTAINERD_DROP_IN_CONF}"
 
 	# script requires that user is root
 	euid=$(id -u)
