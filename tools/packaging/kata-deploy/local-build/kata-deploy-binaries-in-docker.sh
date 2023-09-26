@@ -101,6 +101,8 @@ VIRTIOFSD_CONTAINER_BUILDER="${VIRTIOFSD_CONTAINER_BUILDER:-}"
 MEASURED_ROOTFS="${MEASURED_ROOTFS:-}"
 PULL_TYPE="${PULL_TYPE:-default}"
 USE_CACHE="${USE_CACHE:-}"
+BUSYBOX_CONF_FILE=${BUSYBOX_CONF_FILE:-}
+NVIDIA_GPU_STACK="${NVIDIA_GPU_STACK:-}"
 
 docker run \
 	-v $HOME/.docker:/root/.docker \
@@ -129,6 +131,8 @@ docker run \
 	--env MEASURED_ROOTFS="${MEASURED_ROOTFS}" \
 	--env PULL_TYPE="${PULL_TYPE}" \
 	--env USE_CACHE="${USE_CACHE}" \
+	--env BUSYBOX_CONF_FILE="${BUSYBOX_CONF_FILE}" \
+	--env NVIDIA_GPU_STACK="${NVIDIA_GPU_STACK}" \
 	--env AA_KBC="${AA_KBC:-}" \
 	--env HKD_PATH="$(realpath "${HKD_PATH:-}" 2> /dev/null || true)" \
 	--env SE_KERNEL_PARAMS="${SE_KERNEL_PARAMS:-}" \

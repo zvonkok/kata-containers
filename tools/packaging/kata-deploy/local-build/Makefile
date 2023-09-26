@@ -19,27 +19,12 @@ endif
 
 ifeq ($(ARCH), x86_64)
 BASE_TARBALLS = serial-targets \
-	firecracker-tarball \
-	kernel-confidential-tarball \
-	kernel-dragonball-experimental-tarball \
-	kernel-nvidia-gpu-tarball \
-	kernel-nvidia-gpu-confidential-tarball \
-	kernel-tarball \
-	nydus-tarball \
-	ovmf-sev-tarball \
-	ovmf-tarball \
-	qemu-snp-experimental-tarball \
 	qemu-tarball \
-	stratovirt-tarball \
 	shim-v2-tarball \
 	virtiofsd-tarball
-BASE_SERIAL_TARBALLS = rootfs-image-tarball \
-	rootfs-image-confidential-tarball \
-	rootfs-initrd-confidential-tarball \
-	rootfs-initrd-mariner-tarball \
-	rootfs-initrd-tarball \
-	cloud-hypervisor-tarball \
-	cloud-hypervisor-glibc-tarball
+BASE_SERIAL_TARBALLS = agent-opa-tarball \
+	kernel-nvidia-gpu-tarball \
+	rootfs-nvidia-gpu-initrd-tarball 
 else ifeq ($(ARCH), s390x)
 BASE_TARBALLS = serial-targets \
 	kernel-tarball \
@@ -70,6 +55,9 @@ serial-targets:
 
 %-tarball-build:
 	$(call BUILD,$*)
+
+busybox-tarball:
+	${MAKE} $@-build
 
 agent-tarball: copy-scripts-for-the-agent-build
 	${MAKE} $@-build
@@ -150,6 +138,18 @@ rootfs-initrd-confidential-tarball: agent-tarball pause-image-tarball coco-guest
 	${MAKE} $@-build
 
 rootfs-initrd-tarball: agent-tarball
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-image-tarball: #agent-tarball busybox-tarball
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-initrd-tarball: #agent-tarball busybox-tarball
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-confidential-image-tarball: agent-tarball busybox-tarball pause-image-tarball coco-guest-components-tarball kernel-nvidia-gpu-confidential-tarball
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-confidential-initrd-tarball: agent-tarball busybox-tarball pause-image-tarball coco-guest-components-tarball kernel-nvidia-gpu-confidential-tarball
 	${MAKE} $@-build
 
 runk-tarball:
