@@ -741,7 +741,8 @@ setup_nvidia_gpu_rootfs()
 	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/chroot.sh"
 	local nvidia_gpu_init_functions="${script_dir}/nvidia/init_functions"
 	local nvidia_gpu_init="${script_dir}/nvidia/init"
-	local nvidia_gpu_nras="${script_dir}/nvidia/remote_attestation.py"
+	local nvidia_gpu_attest_remote="${script_dir}/nvidia/remote_attestation.py"
+	local nvidia_gpu_attest_local="${script_dir}/nvidia/local_attestation.py"
 
 
 	echo "Setup NVIDIA GPU rootfs"
@@ -752,7 +753,9 @@ setup_nvidia_gpu_rootfs()
 	cp "${nvidia_gpu_rootfs_chroot}"  ./root/chroot.sh
 	cp "${nvidia_gpu_init_functions}" ./init_functions
 	cp "${nvidia_gpu_init}"           ./init
-	cp "${nvidia_gpu_nras}"           ./gpu-attestation/bin/remote_attestation.py
+	cp "${nvidia_gpu_attest_remote}"  ./gpu-attestation/bin/remote_attestation.py
+	cp "${nvidia_gpu_attest_local}"   ./gpu-attestation/bin/local_attestation.py
+
 
 	chmod +x ./root/chroot.sh
 	chmod +x ./init_functions

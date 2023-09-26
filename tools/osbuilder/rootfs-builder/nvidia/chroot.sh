@@ -54,10 +54,14 @@ function cleanup_rootfs() {
 			libnvidia-compute-"${driver_version}"   
 	fi
 
-	kernel_version=$(dpkg --get-selections | cut -f1 | grep linux-headers)
-	linux_image=$(dpkg --get-selections | cut -f1 | grep linux-image)
-	apt purge -yqq jq make gcc git curl gpg software-properties-common python3-pip \
-		ca-certificates linux-libc-dev "${kernel_version}" "${linux_image}"  
+	kernel_headers=$(dpkg --get-selections | cut -f1 | grep linux-headers)
+	linux_images=$(dpkg --get-selections | cut -f1 | grep linux-image)
+	for i in ${kernel_headers} ${linux_images}; do
+		apt purge -yqq "${i}"
+	done
+
+	apt purge -yqq jq make gcc git curl gpg software-properties-common \
+		python3-pip ca-certificates linux-libc-dev
 
 	if [ -n "${driver_version}" ]; then
 		apt purge -yqq nvidia-headless-no-dkms-"${driver_version}${driver_type}" \
@@ -78,6 +82,7 @@ function cleanup_rootfs() {
 
 	rm -rf /etc/apt/sources.list* /var/lib/apt /var/log/apt /var/cache/debconf
 	rm -f /usr/bin/nvidia-ngx-updater /usr/bin/nvidia-container-runtime
+	rm -f /var/log/{nvidia-installer.log,dpkg.log,alternatives.log}
 	# TODO remove complete /usr/share
 	
 	dpkg --purge apt git
@@ -85,6 +90,8 @@ function cleanup_rootfs() {
 	# Clear and regenerate the ld cache
 	rm -f /etc/ld.so.cache
 	ldconfig
+
+
 }
 
 function install_nvidia_container_runtime() {
@@ -96,31 +103,42 @@ function install_nvidia_container_runtime() {
 	eval "${APT_INSTALL}" nvidia-container-toolkit=1.13.2-1
 
 	sed -i "s/#debug/debug/g"                             		/etc/nvidia-container-runtime/config.toml
-	sed -i "s|/var/log|/var/log/nvidia-kata-container|g" 		/etc/nvidia-container-runtime/config.toml
+	sed -i "s|/var/log|/var/log/nvidia-kata-containers|g" 		/etc/nvidia-container-runtime/config.toml
 	sed -i "s/#no-cgroups = false/no-cgroups = true/g"    		/etc/nvidia-container-runtime/config.toml
 	sed -i "/\[nvidia-container-cli\]/a no-pivot = true"  		/etc/nvidia-container-runtime/config.toml
 	sed -i "s/disable-require = false/disable-require = true/g"	/etc/nvidia-container-runtime/config.toml
 
 
-	hooks_dir=/etc/oci/hooks.d
+	local hooks_dir=/etc/oci/hooks.d
 	mkdir -p ${hooks_dir}/prestart
 	
-	cat <<-'CHROOT_EOF' > ${hooks_dir}/prestart/0000-nvidia-container-toolkit.sh
-		#!/bin/bash -x
+	local hook=${hooks_dir}/prestart/nvidia-container-runtime-hook.sh
+	cat <<-'CHROOT_EOF' > ${hook}
+		#!/bin/bash
 
-		/usr/bin/nvidia-container-runtime-hook $@
+		. /init-functions
+		script=$(basename "$0" .sh)
+		exec &> ${logging_directory}/${script}.log
+
+		/usr/bin/nvidia-container-runtime-hook -debug $@ 
 
 	CHROOT_EOF
-	chmod +x ${hooks_dir}/prestart/0000-nvidia-container-toolkit.sh
+	chmod +x ${hook}
 
-	cat <<-'CHROOT_EOF' > ${hooks_dir}/prestart/0001-nvidia-verifier.sh
-		#!/bin/bash -x
+
+	local hook=${hooks_dir}/prestart/nvidia-verifier-hook.sh
+	cat <<-'CHROOT_EOF' > ${hook}
+		#!/bin/bash 
 
 		. /init_functions
-		nvidia_verifier_hook &> /var/log/nvidia-kata-container/0001-nvidia_verifier.log 2>&1 
+		script=$(basename "$0" .sh)
+		exec &> ${logging_directory}/${script}.log
+
+		nvidia_process_kernel_params "nvidia.attestation.mode"
+		nvidia_verifier_hook ${attestation_mode}
 
 	CHROOT_EOF
-	chmod +x ${hooks_dir}/prestart/0001-nvidia-verifier.sh
+	chmod +x ${hook}
 
 
 

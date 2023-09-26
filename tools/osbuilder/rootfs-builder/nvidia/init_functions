@@ -3,20 +3,81 @@
 export PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin'
 export confidential_compute=false
 export supported_gpu_devids="/supported-gpu.devids"
-export logging_directory="/var/log/nvidia-kata-container/"
+export logging_directory="/var/log/nvidia-kata-containers/"
 
 declare -i ERR_NOT_SUPPORTED=1
+declare -i DEBUG_ENABLED=1
+declare -i DEBUG_DISABLED=0
+
+nvlog_preamble() {
+	printf  "nvidia: %30s" "$1" 
+}
+
+nvlog_ok() {
+	printf "%10s\n" "[OK]" 
+}
+
+nvlog_failed() {
+	printf "%10s\n" "[FAILED]" 
+}
+
+nvlog_debug() {
+	if [ ! -e .log ]; then
+		return
+	fi
+	while IFS= read -r line; do
+		if [ -z "$line" ]; then
+			continue
+		fi
+    		printf "        %s\n" "$line"
+	done <<< "$(cat .log)"
+}
+
+debug_enabled() {
+	if [ -e /proc/cmdline ]; then
+ 		if grep -q "nvidia.debug=1" /proc/cmdline; then
+			echo ${DEBUG_ENABLED}
+			return 0
+		fi
+
+	 	if grep -q "nvidia.debug=0" /proc/cmdline; then
+			echo ${DEBUG_DISABLED}
+			return 0
+		fi
+
+		echo ${DEBUG_DISABLED}
+		return 0
+	fi
+}
+
+assert_ok() {
+	local assert_function=$*
+	nvlog_preamble "${assert_function}"
+ 	if $assert_function > .log 2>&1 ; then 
+ 		nvlog_ok
+		[ "${debug}" = "${DEBUG_ENABLED}" ] && nvlog_debug
+		return 0
+ 	else 
+ 		nvlog_failed
+ 		nvlog_debug
+		return 1
+ 	fi
+}
+
+export debug=
 
 mount_setup() {
 	mount -t proc proc /proc -o nosuid,noexec,nodev
 	mount -t sysfs sysfs /sys -o nosuid,noexec,nodev
 	mount -t devtmpfs dev /dev -o mode=0755,nosuid
 	mount -t tmpfs run /run -o nosuid,nodev,mode=0755
+	#mount -t securityfs security /sys/kernel/security  -o nosuid,nodev,noexec,relatime
 	mkdir -m755 /run/initramfs
 
-	if [ -e /sys/firmware/efi ]; then
-		mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
-	fi
+
+	#if [ -e /sys/firmware/efi ]; then
+	#	mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
+	#fi
 
 	# Setup /dev symlinks
 	if [ -e /proc/kcore ]; then
@@ -26,16 +87,28 @@ mount_setup() {
 	ln -sfT /proc/self/fd/0 /dev/stdin
 	ln -sfT /proc/self/fd/1 /dev/stdout
 	ln -sfT /proc/self/fd/2 /dev/stderr
+
+	debug=$(debug_enabled)
 }
 
-
-nvidia_ctk_hook() {
+nvidia_persistenced() {
+	# VMI may have different kernels installed lets make sure that 
+	# module dependencies can be resolved.
+ 	depmod -a
+	#TODO: Does CC need root privs for persistenced?
+	#mkdir /var/run/nvidia-persistenced
+	#chown nobody:nogroup /var/run/nvidia-persistenced
+	#nvidia-persistenced -u nobody -g nogroup 
 	nvidia-persistenced
+}
+
+nvidia_container_toolkit() {
 	nvidia-ctk system create-device-nodes --control-devices --load-kernel-modules 
 	nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.json                     
 }
 
 nvidia_verifier_hook() {
+	nvidia_attestation_mode=$1
 	# static check for confidential compute
 	if [ "${confidential_compute}" == false ]; then
 		echo "confidential_compute is false, returning"
@@ -48,19 +121,32 @@ nvidia_verifier_hook() {
 
 	if [ "$conf_compute" == "ON" ];then 
 		nvidia-smi conf-compute -grs 
-		# shellcheck source=/dev/null
-		source /gpu-attestation/bin/activate
-
-		if python3 /gpu-attestation/bin/remote_attestation.py; then
-			echo "NVIDIA GPU Remote Attestation passed"
-			nvidia-smi conf-compute -srs 1
-		else 
-			echo "NVIDIA GPU Remote Attestation failed"
-			nvidia-smi conf-compute -srs 0
-		fi
 		# TODO: Until Remote Attestion Works
 		echo "TODO: NVIDIA GPU Overriding Remote Attestation"
 		nvidia-smi conf-compute -srs 1
+		# shellcheck source=/dev/null
+		source /gpu-attestation/bin/activate
+
+		if [ "${nvidia_attestation_mode}" == "remote" ]; then
+			echo "NVIDIA GPU Remote Attestation"
+
+			if python3 /gpu-attestation/bin/remote_attestation.py; then
+				echo "NVIDIA GPU Remote Attestation passed"
+				#nvidia-smi conf-compute -srs 1
+			else 
+				echo "NVIDIA GPU Remote Attestation failed"
+				#nvidia-smi conf-compute -srs 0
+			fi
+		else 
+			echo "NVIDIA GPU Local Attestation"
+			if python3 /gpu-attestation/bin/local_attestation.py; then
+				echo "NVIDIA GPU Local Attestation passed"
+				#nvidia-smi conf-compute -srs 1
+			else 
+				echo "NVIDIA GPU Local Attestation failed"
+				#nvidia-smi conf-compute -srs 0
+			fi
+		fi 
 	fi
 }
 
@@ -69,31 +155,37 @@ export gpu_bdfs=()
 
 nvidia_get_devices() {
 
-  while IFS= read -r device_id; do
-         gpu_device_ids+=("$device_id")
-  done < <(lspci -d 10de: -n | awk -F ' ' '{print $3}' | cut -d: -f2)
+	while IFS= read -r device_id; do
+		gpu_device_ids+=("$device_id")
+	done < <(lspci -d 10de: -n | awk -F ' ' '{print $3}' | cut -d: -f2)
 
+	while IFS= read -r bdf; do
+		gpu_bdfs+=("$bdf")
+	done < <(lspci -d 10de: -n | awk -F ' ' '{print $1}')
 
-  while IFS= read -r bdf; do
-         gpu_bdfs+=("$bdf")
-  done < <(lspci -d 10de: -n | awk -F ' ' '{print $1}')
-
-  for bdf in "${!gpu_bdfs[@]}"; do
-         echo -e "\n NVIDIA GPUs:\n\tgpuID [$bdf] - ${gpu_bdfs[index]}\n"
-  done
+	for bdf in "${!gpu_bdfs[@]}"; do
+		echo -e "\n NVIDIA GPUs:\n        gpuID [$bdf] - ${gpu_bdfs[index]}\n"
+	done
 }
 
-nvidia_toggle_FLR() {
-  echo "Resetting ALL NVIDIA GPUs"
-  for bdf in "${gpu_bdfs[@]}"; do
-       echo "Resetting BDF $bdf"
-       sh -c "echo 1 > /sys/bus/pci/devices/0000:$bdf/reset"
-  done
+nvidia_reset_gpus() {
+
+	echo "nvidia: resetting ALL NVIDIA GPUs"
+  	for bdf in "${gpu_bdfs[@]}"; do
+       		echo "nvidia: resetting BDF $bdf"
+       		if echo 1 > "/sys/bus/pci/devices/0000:${bdf}/reset"; then 
+			echo "nvidia: reset BDF $bdf succeeded"
+			return 0 
+		fi
+		echo "nvidia: reset BDF $bdf failed"
+		return 1
+  	done
 }
 
 nvidia_check_if_supported() {
+
 	if [ ! -e "${supported_gpu_devids}" ]; then
-		echo "${supported_gpu_devids} file not found, skipping check"
+		echo "nvidia: ${supported_gpu_devids} file not found, skipping check"
 		return
 	fi
 
@@ -102,6 +194,123 @@ nvidia_check_if_supported() {
 			echo "GPU $devid is not supported, returning"
 			return ${ERR_NOT_SUPPORTED}
 		fi
+	done
+}
+
+nvidia_unload_reload_driver() {
+
+	kill "$(pidof nvidia-persistenced)"
+	rmmod nvidia-uvm
+	rmmod nvidia-modeset
+	rmmod nvidia 
+
+	assert_ok nvidia_reset_gpus
+	assert_ok nvidia_persistenced
+}
+
+nvidia_smi_lgc() {
+
+	local value=$1
+	IFS=':' read -r -a parts <<< "$value"
+	echo "NVIDIA: locking gpu clocks on GPU${parts[0]} to ${parts[1]} MHz" 
+	nvidia-smi -i "${parts[0]}" -lgc "${parts[1]}" 
+}
+
+nvidia_smi_lmcd() {
+
+	local value=$1
+	IFS=':' read -r -a parts <<< "$value"
+	echo "NVIDIA: locking memory clocks on GPU${parts[0]} to ${parts[1]} MHz" 
+	nvidia-smi -i "${parts[0]}" -lmcd "${parts[1]}" 
+	nvidia_unload_reload_driver
+}
+
+nvidia_smi_pl() {
+
+	local value=$1
+	IFS=':' read -r -a parts <<< "$value"
+	echo "NVIDIA: setting power limit on GPU${parts[0]} to ${parts[1]} Watt" 
+	nvidia-smi -i "${parts[0]}" -pl "${parts[1]}" 
+}
+
+export attestation_mode="remote"
+
+nvidia_attestation_mode() {
+	mode=$1
+ 	if [ "${mode}" = "remote" ]; then 
+		attestation_mode=${mode}
+		return 0
+	fi
+
+	if [ "${mode}" = "local" ]; then 
+		attestation_mode=${mode}
+		return 0
+	fi
+
+	echo "nvidia: invalid attestation mode: ${mode}"
+	return 1
+}
+
+nvidia_process_kernel_params() {
+
+	which_param=$1
+	kernel_params=$(cat /proc/cmdline)
+	echo "nvidia: kernel_params: $kernel_params"
+
+	if [ "$which_param" = "nvidia.attestation.mode" ]; then
+		for param in $kernel_params; do
+    			case $param in
+				nvidia.attestation.mode=*)
+	    			value=${param#nvidia.attestation.mode=}
+	    			echo "nvidia: value of kernel param nvidia.attestation.mode: $value" 
+				if ! nvidia_attestation_mode "$value"; then
+					return 1
+				fi
+				;;
+			esac
+		done
+		return 0
+	fi
+
+
+	for param in $kernel_params; do
+    		case $param in
+        		nvidia.smi.lgc=*)
+            		value=${param#nvidia.smi.lgc=}
+            		echo "nvidia: value of kernel param nvidia.smi.lgc: $value"
+			if ! nvidia_smi_lgc "$value"; then 
+				return 1
+			fi
+			;;
+
+        		nvidia.smi.lmcd=*)
+            		value=${param#nvidia.smi.lmcd=}
+            		echo "nvidia: value of kernel param nvidia.smi.lmcd: $value"
+			if ! nvidia_smi_lmcd "$value"; then 
+				return 1
+			fi 
+			;;
+
+        		nvidia.smi.pl=*)
+            		value=${param#nvidia.smi.pl=}
+            		echo "nvidia: value of kernel param nvidia.smi.pl: $value" 
+			if nvidia_smi_pl "$value"; then 
+				return 1
+			fi
+            		;;
+
+			nvidia.attestation.mode=*)
+            		value=${param#nvidia.attestation.mode=}
+            		echo "nvidia: value of kernel param nvidia.attestation.mode: $value" 
+			if nvidia_attestation_mode "$value"; then
+				return 1
+			fi
+			;;
+
+        	*)
+            		# Ignore other parameters
+            		;;
+		esac
 	done
 }
 
