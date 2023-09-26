@@ -36,6 +36,7 @@ build_initrd() {
 	info "initrd os: $os_name"
 	info "initrd os version: $os_version"
 	sudo -E PATH="$PATH" make initrd \
+		VARIANT="${image_initrd_suffix}" \
 		DISTRO="$os_name" \
 		DEBUG="${DEBUG:-}" \
 		OS_VERSION="${os_version}" \
@@ -55,10 +56,11 @@ build_image() {
 	info "image os: $os_name"
 	info "image os version: $os_version"
 	sudo -E PATH="${PATH}" make image \
+		VARIANT="${image_initrd_suffix}" \
 		DISTRO="${os_name}" \
 		DEBUG="${DEBUG:-}" \
 		USE_DOCKER="1" \
-		IMG_OS_VERSION="${os_version}" \
+		OS_VERSION="${os_version}" \
 		ROOTFS_BUILD_DEST="${builddir}/rootfs-image" \
 		AGENT_POLICY="${AGENT_POLICY:-}"
 	mv -f "kata-containers.img" "${install_dir}/${artifact_name}"
@@ -70,6 +72,7 @@ build_image() {
 		ln -sf "${artifact_name}" "${final_artifact_name}${image_initrd_extension}"
 	)
 }
+
 
 usage() {
 	return_code=${1:-0}
@@ -166,6 +169,7 @@ main() {
 	initrd) build_initrd ;;
 	image) build_image ;;
 	esac
+
 
 	popd
 }

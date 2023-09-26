@@ -59,11 +59,14 @@ readonly -a systemd_units=(
 	"systemd-random-seed"
 	"systemd-timesyncd"
 	"systemd-tmpfiles-setup"
-	"systemd-udevd"
-	"systemd-udevd-control"
-	"systemd-udevd-kernel"
-	"systemd-udev-trigger"
 	"systemd-update-utmp"
+#	"systemd-udevd"
+#	"systemd-udevd-control"
+#	"systemd-udevd-kernel"
+#	"systemd-udev-trigger"
+	"initrd-cleanup"
+	"initrd-udevadm-cleanup-db"
+	"initrd-switch-root"
 )
 
 readonly -a systemd_files=(
@@ -282,7 +285,7 @@ calculate_required_disk_size() {
 	readonly rootfs_size_mb=$(du -B 1M -s "${rootfs}" | awk '{print $1}')
 	readonly image="$(mktemp)"
 	readonly mount_dir="$(mktemp -d)"
-	readonly max_tries=20
+	readonly max_tries=100
 	readonly increment=10
 
 	for i in $(seq 1 $max_tries); do

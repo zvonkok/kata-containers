@@ -127,6 +127,17 @@ rootfs-initrd-mariner-tarball:
 rootfs-initrd-sev-tarball: kernel-sev-tarball
 	${MAKE} $@-build
 
+rootfs-nvidia-gpu-image-tarball:
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-initrd-tarball:
+	${MAKE} $@-build
+
+ifndef SKIP_NVIDIA_GPU_KERNEL
+rootfs-nvidia-gpu-initrd-tarball: kernel-nvidia-gpu-tarball kernel-nvidia-gpu-snp-tarball kernel-nvidia-gpu-tdx-experimental-tarball
+rootfs-nvidia-gpu-image-tarball: kernel-nvidia-gpu-tarball kernel-nvidia-gpu-snp-tarball kernel-nvidia-gpu-tdx-experimental-tarball
+endif
+
 rootfs-initrd-tarball:
 	${MAKE} $@-build
 

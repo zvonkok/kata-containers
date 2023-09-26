@@ -453,6 +453,7 @@ build_rootfs_distro()
 			--env EXTRA_PKGS="${EXTRA_PKGS}" \
 			--env OSBUILDER_VERSION="${OSBUILDER_VERSION}" \
 			--env OS_VERSION="${OS_VERSION}" \
+			--env VARIANT="${VARIANT}" \
 			--env INSIDE_CONTAINER=1 \
 			--env SECCOMP="${SECCOMP}" \
 			--env SELINUX="${SELINUX}" \
@@ -617,7 +618,7 @@ EOF
 			git checkout "${AGENT_VERSION}" && OK "git checkout successful" || die "checkout agent ${AGENT_VERSION} failed!"
 		fi
 		make clean
-		make LIBC=${LIBC} INIT=${AGENT_INIT} SECCOMP=${SECCOMP} AGENT_POLICY=${AGENT_POLICY}
+		make -j $(nproc) LIBC=${LIBC} INIT=${AGENT_INIT} SECCOMP=${SECCOMP} AGENT_POLICY=${AGENT_POLICY}
 		make install DESTDIR="${ROOTFS_DIR}" LIBC=${LIBC} INIT=${AGENT_INIT}
 		strip ${ROOTFS_DIR}/usr/bin/kata-agent
 		if [ "${SECCOMP}" == "yes" ]; then
@@ -733,6 +734,81 @@ get_opa_bin_dir()
 	done
 }
 
+setup_nvidia_gpu_rootfs()
+{
+	set -x
+
+	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/chroot.sh"
+	local nvidia_gpu_init_functions="${script_dir}/nvidia/init_functions"
+	local nvidia_gpu_init="${script_dir}/nvidia/init"
+	local nvidia_gpu_nras="${script_dir}/nvidia/remote_attestation.py"
+
+
+	echo "Setup NVIDIA GPU rootfs"
+	pushd "${ROOTFS_DIR}" >> /dev/null
+
+	mkdir -p ./gpu-attestation/bin
+
+	cp "${nvidia_gpu_rootfs_chroot}"  ./root/chroot.sh
+	cp "${nvidia_gpu_init_functions}" ./init_functions
+	cp "${nvidia_gpu_init}"           ./init
+	cp "${nvidia_gpu_nras}"           ./gpu-attestation/bin/remote_attestation.py
+
+	chmod +x ./root/chroot.sh
+	chmod +x ./init_functions
+	chmod +x ./init
+
+	BUILDDIR="/kata-containers/tools/packaging/kata-deploy/local-build/build/"
+
+	# We need the kernel packages for building the drivers cleanly will be
+	# deinstalled and removed from the roofs once the build finishes.
+	if [ "${ARCH}" == "aarch64" ]; then
+		# Only if the directory exists copy the deb files
+		if [ -d "${BUILDDIR}/kernel-nvidia-gpu/builddir" ]; then
+			cp ${BUILDDIR}/kernel-nvidia-gpu/builddir/linux-*.deb ./root/.
+		fi
+	fi
+
+	if [ "${ARCH}" == "x86_64" ]; then
+		# Only if the directory exists copy the deb files
+		if [ -d "${BUILDDIR}/kernel-nvidia-gpu/builddir" ]; then
+			cp ${BUILDDIR}/kernel-nvidia-gpu/builddir/linux-*.deb ./root/.
+		fi
+		if [ -d "${BUILDDIR}/kernel-nvidia-gpu-snp/builddir" ]; then
+			cp ${BUILDDIR}/kernel-nvidia-gpu-snp/builddir/linux-*.deb ./root/.
+		fi
+		if [ -d "${BUILDDIR}/kernel-nvidia-gpu-tdx-experimental/builddir" ]; then
+			cp ${BUILDDIR}/kernel-nvidia-gpu-tdx-experimental/builddir/linux-*.deb ./root/.
+		fi
+	fi
+
+	# If we find a local downloaded run file build the kernel modules
+	# with it, otherwise use the distribution packages. Run files may have
+	# more recent drivers available then the distribution packages.
+	local run_file_name="nvidia.run"
+	if [ -f ${BUILDDIR}/${run_file_name} ]; then
+		cp -L ${BUILDDIR}/${run_file_name} ./root/${run_file_name}
+	fi
+
+	mount --rbind /dev ./dev
+	mount --make-rslave ./dev
+	mount -t proc /proc ./proc
+
+	local uname_r=$(uname -r)
+        chroot . /bin/bash -c "/root/chroot.sh ${uname_r} ${run_file_name} ${ARCH}"
+	chroot . /bin/bash -c "dpkg-query -l | grep ^ii" > ${BUILDDIR}/dpkg.sbom.list
+
+
+
+	umount -R ./dev
+	umount ./proc
+
+	# Remove artifacts needed for building the rootfs
+	rm -rf ./root/
+
+	popd  >> /dev/null
+}
+
 parse_arguments()
 {
 	[ "$#" -eq 0 ] && usage && return 0
@@ -790,6 +866,10 @@ main()
 
 	init="${ROOTFS_DIR}/sbin/init"
 	setup_rootfs
+
+	if [ "${VARIANT}" = "nvidia-gpu" ]; then
+		time setup_nvidia_gpu_rootfs
+	fi
 }
 
 main $*

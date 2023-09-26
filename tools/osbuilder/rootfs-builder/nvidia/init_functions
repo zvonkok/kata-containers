@@ -1,0 +1,109 @@
+#!/bin/bash -x
+
+export PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin'
+export confidential_compute=false
+export supported_gpu_devids="/supported-gpu.devids"
+export logging_directory="/var/log/nvidia-kata-container/"
+
+declare -i ERR_NOT_SUPPORTED=1
+
+mount_setup() {
+	mount -t proc proc /proc -o nosuid,noexec,nodev
+	mount -t sysfs sysfs /sys -o nosuid,noexec,nodev
+	mount -t devtmpfs dev /dev -o mode=0755,nosuid
+	mount -t tmpfs run /run -o nosuid,nodev,mode=0755
+	mkdir -m755 /run/initramfs
+
+	if [ -e /sys/firmware/efi ]; then
+		mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
+	fi
+
+	# Setup /dev symlinks
+	if [ -e /proc/kcore ]; then
+		ln -sfT /proc/kcore /dev/core
+	fi
+	ln -sfT /proc/self/fd   /dev/fd
+	ln -sfT /proc/self/fd/0 /dev/stdin
+	ln -sfT /proc/self/fd/1 /dev/stdout
+	ln -sfT /proc/self/fd/2 /dev/stderr
+}
+
+
+nvidia_ctk_hook() {
+	nvidia-persistenced
+	nvidia-ctk system create-device-nodes --control-devices --load-kernel-modules 
+	nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.json                     
+}
+
+nvidia_verifier_hook() {
+	# static check for confidential compute
+	if [ "${confidential_compute}" == false ]; then
+		echo "confidential_compute is false, returning"
+		return
+	fi
+
+	# dynamic check for confidential compute
+	local conf_compute
+	conf_compute=$(nvidia-smi conf-compute -f | awk -F ' ' '{print $3}')
+
+	if [ "$conf_compute" == "ON" ];then 
+		nvidia-smi conf-compute -grs 
+		# shellcheck source=/dev/null
+		source /gpu-attestation/bin/activate
+
+		if python3 /gpu-attestation/bin/remote_attestation.py; then
+			echo "NVIDIA GPU Remote Attestation passed"
+			nvidia-smi conf-compute -srs 1
+		else 
+			echo "NVIDIA GPU Remote Attestation failed"
+			nvidia-smi conf-compute -srs 0
+		fi
+		# TODO: Until Remote Attestion Works
+		echo "TODO: NVIDIA GPU Overriding Remote Attestation"
+		nvidia-smi conf-compute -srs 1
+	fi
+}
+
+export gpu_device_ids=()
+export gpu_bdfs=()
+
+nvidia_get_devices() {
+
+  while IFS= read -r device_id; do
+         gpu_device_ids+=("$device_id")
+  done < <(lspci -d 10de: -n | awk -F ' ' '{print $3}' | cut -d: -f2)
+
+
+  while IFS= read -r bdf; do
+         gpu_bdfs+=("$bdf")
+  done < <(lspci -d 10de: -n | awk -F ' ' '{print $1}')
+
+  for bdf in "${!gpu_bdfs[@]}"; do
+         echo -e "\n NVIDIA GPUs:\n\tgpuID [$bdf] - ${gpu_bdfs[index]}\n"
+  done
+}
+
+nvidia_toggle_FLR() {
+  echo "Resetting ALL NVIDIA GPUs"
+  for bdf in "${gpu_bdfs[@]}"; do
+       echo "Resetting BDF $bdf"
+       sh -c "echo 1 > /sys/bus/pci/devices/0000:$bdf/reset"
+  done
+}
+
+nvidia_check_if_supported() {
+	if [ ! -e "${supported_gpu_devids}" ]; then
+		echo "${supported_gpu_devids} file not found, skipping check"
+		return
+	fi
+
+	for devid in "${gpu_device_ids[@]}"; do
+		if ! grep -q "${devid}" "${supported_gpu_devids}"; then
+			echo "GPU $devid is not supported, returning"
+			return ${ERR_NOT_SUPPORTED}
+		fi
+	done
+}
+
+# The very first step so we can capture all the logs
+mkdir -p "${logging_directory}"

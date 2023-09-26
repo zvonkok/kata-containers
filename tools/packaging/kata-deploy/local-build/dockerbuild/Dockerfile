@@ -12,6 +12,10 @@ COPY install_oras.sh /usr/bin/install_oras.sh
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install yq, oras, and docker
+# Multithreaded XZ compression
+ENV XZ_DEFAULTS="-T 0"
+
+# Install yq and docker
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \

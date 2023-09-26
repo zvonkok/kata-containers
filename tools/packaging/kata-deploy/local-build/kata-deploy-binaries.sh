@@ -10,6 +10,9 @@ set -o nounset
 set -o pipefail
 set -o errtrace
 
+# Use mulit-threaded XZ compression
+export XZ_OPT="-T0"
+
 readonly project="kata-containers"
 
 readonly script_name="$(basename "${BASH_SOURCE[0]}")"
@@ -245,6 +248,18 @@ install_initrd() {
 	"${rootfs_builder}" --osname="${os_name}" --osversion="${os_version}" --imagetype=initrd --prefix="${prefix}" --destdir="${destdir}" --image_initrd_suffix="${variant}"
 }
 
+#Instal NVIDIA GPU guest image 
+install_image_nvidia_gpu() {
+	export AGENT_POLICY=yes
+	EXTRA_PKGS="apt" install_image "nvidia-gpu" 
+}
+
+#Install NVIDIA GPU initrd 
+install_initrd_nvidia_gpu() {
+	export AGENT_POLICY=yes
+	EXTRA_PKGS="apt" install_initrd "nvidia-gpu" 
+}
+
 #Install Mariner guest initrd
 install_initrd_mariner() {
 	export AGENT_POLICY=yes
@@ -272,7 +287,7 @@ install_cached_kernel_tarball_component() {
 		"${final_tarball_name}" \
 		"${final_tarball_path}" \
 		|| return 1
-	
+
 	if [[ "${kernel_name}" != "kernel-sev" ]]; then
 		return 0
 	fi
@@ -310,7 +325,7 @@ install_kernel_helper() {
 		module_dir="${repo_root_dir}/tools/packaging/kata-deploy/local-build/build/kernel-sev/builddir/kata-linux-${kernel_version#v}-${kernel_kata_config_version}/lib/modules/${kernel_version#v}"
 	fi
 
-	install_cached_kernel_tarball_component ${kernel_name} ${module_dir} && return 0
+#	install_cached_kernel_tarball_component ${kernel_name} ${module_dir} && return 0
 
 	if [ "${MEASURED_ROOTFS}" == "yes" ]; then
 		info "build initramfs for cc kernel"
@@ -728,6 +743,8 @@ handle_build() {
 		install_clh
 		install_firecracker
 		install_image
+		install_nvidia_gpu_image
+		install_nvidia_gpu_initrd
 		install_initrd
 		install_initrd_mariner
 		install_initrd_sev
@@ -736,6 +753,8 @@ handle_build() {
 		install_kernel_dragonball_experimental
 		install_kernel_tdx_experimental
 		install_log_parser_rs
+		install_kernel_nvidia_gpu_snp
+		install_kernel_nvidia_gpu_tdx_experimental
 		install_nydus
 		install_ovmf
 		install_ovmf_sev
@@ -794,6 +813,10 @@ handle_build() {
 	rootfs-image) install_image ;;
 
 	rootfs-image-tdx) install_image_tdx ;;
+
+	rootfs-nvidia-gpu-image) install_image_nvidia_gpu ;;
+
+	rootfs-nvidia-gpu-initrd) install_initrd_nvidia_gpu ;;
 
 	rootfs-initrd) install_initrd ;;
 

@@ -1,0 +1,21 @@
+#!/bin/bash -x
+# shellcheck source=/dev/null
+. /init_functions
+
+mount_setup               &> "${logging_directory:?}/mount_setup.log"
+nvidia_get_devices        &> "${logging_directory:?}/nvidia_get_devices.log"
+nvidia_check_if_supported &> "${logging_directory:?}/nvidia_check_if_supported.log"
+
+# If the GPU is not supported do not do any GPU handling
+is_supported=$(nvidia_check_if_supported &> ${logging_directory}/nvidia_check_if_supported.log)
+if ${is_supported}; then 
+        # Only if we're cold-plugging we would detect GPUs in this phase, 
+        # skip any GPU related setup if we don't have any GPUs
+        if [ -n "${gpu_device_ids}" ]; then
+                nvidia_toggle_FLR    &> "${logging_directory:?}/nvidia_toggle_FLR.log"
+                nvidia_ctk_hook      &> "${logging_directory:?}/nvidia_ctk_hook.log"
+        fi
+fi 
+
+# Setting AGENT_INIT to yes will make the agent the init process
+exec /sbin/init
