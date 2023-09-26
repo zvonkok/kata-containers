@@ -19,7 +19,6 @@ source "${script_dir}/../../scripts/lib.sh"
 build_busybox_from_source()
 {
 	echo "build busybox from source"
-
 	URL_TARBZ2="${BUSYBOX_URL:?}/busybox-${BUSYBOX_VERSION:?}.tar.bz2"
 	URL_SHA="${BUSYBOX_URL:?}/busybox-${BUSYBOX_VERSION:?}.tar.bz2.sha256"
 	URL_SIG="${BUSYBOX_URL:?}/busybox-${BUSYBOX_VERSION:?}.tar.bz2.sig"

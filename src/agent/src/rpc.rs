@@ -52,7 +52,9 @@ use nix::sys::{stat, statfs};
 use nix::unistd::{self, Pid};
 use rustjail::process::ProcessOperations;
 
-use crate::device::{add_devices, get_virtio_blk_pci_device_name, update_env_pci};
+use crate::device::{
+    add_devices, get_virtio_blk_pci_device_name, update_env_pci, handle_cdi_devices
+};
 use crate::features::get_build_features;
 use crate::linux_abi::*;
 use crate::metrics::get_metrics;
@@ -235,6 +237,13 @@ impl AgentService {
                 }
             }
         }
+        // In guest-kernel mode some devices need extra handling. Taking the
+        // GPU as an example the shim will inject CDI annotations that will
+        // be used by the kata-agent to do containerEdits according to the
+        // CDI spec coming from a registry that is created on the fly by UDEV
+        // rules for a specifc device.
+        handle_cdi_devices(&req.devices, &mut oci, &self.sandbox).await?;
+        info!(sl(), "modified CDI container spec: {:?}", &oci);  
 
         // Both rootfs and volumes (invoked with --volume for instance) will
         // be processed the same way. The idea is to always mount any provided
