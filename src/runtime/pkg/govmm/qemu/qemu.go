@@ -141,9 +141,16 @@ const (
 func isDimmSupported(config *Config) bool {
 	switch runtime.GOARCH {
 	case "amd64", "386", "ppc64le", "arm64":
-		if config != nil && config.Machine.Type == MachineTypeMicrovm {
-			// microvm does not support NUMA
-			return false
+		if config != nil {
+			if config.Machine.Type == MachineTypeMicrovm {
+				// microvm does not support NUMA
+				return false
+			}
+			if config.Knobs.MemFDPrivate {
+				// TDX guests rely on MemFD Private, which
+				// does not have NUMA support yet
+				return false
+			}
 		}
 		return true
 	default:
@@ -2641,6 +2648,9 @@ type Knobs struct {
 	// MemPrealloc will allocate all the RAM upfront
 	MemPrealloc bool
 
+	// Private Memory FD meant for private memory map/unmap.
+	MemFDPrivate bool
+
 	// FileBackedMem requires Memory.Size and Memory.Path of the VM to
 	// be set.
 	FileBackedMem bool
@@ -2771,8 +2781,6 @@ type Config struct {
 	PidFile string
 
 	qemuParams []string
-
-	Debug bool
 }
 
 // appendFDs appends a list of arbitrary file descriptors to the qemu configuration and
@@ -2809,15 +2817,8 @@ func (config *Config) appendSeccompSandbox() {
 
 func (config *Config) appendName() {
 	if config.Name != "" {
-		var nameParams []string
-		nameParams = append(nameParams, config.Name)
-
-		if config.Debug {
-			nameParams = append(nameParams, "debug-threads=on")
-		}
-
 		config.qemuParams = append(config.qemuParams, "-name")
-		config.qemuParams = append(config.qemuParams, strings.Join(nameParams, ","))
+		config.qemuParams = append(config.qemuParams, config.Name)
 	}
 }
 
@@ -3015,10 +3016,13 @@ func (config *Config) appendMemoryKnobs() {
 		return
 	}
 	var objMemParam, numaMemParam string
+
 	dimmName := "dimm1"
 	if config.Knobs.HugePages {
 		objMemParam = "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=/dev/hugepages"
 		numaMemParam = "node,memdev=" + dimmName
+	} else if config.Knobs.MemFDPrivate {
+		objMemParam = "memory-backend-memfd-private,id=" + dimmName + ",size=" + config.Memory.Size
 	} else if config.Knobs.FileBackedMem && config.Memory.Path != "" {
 		objMemParam = "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=" + config.Memory.Path
 		numaMemParam = "node,memdev=" + dimmName
