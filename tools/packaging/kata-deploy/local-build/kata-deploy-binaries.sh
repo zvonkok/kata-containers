@@ -390,7 +390,7 @@ install_initrd() {
 		os_name="$(get_from_kata_deps ".assets.initrd.architecture.${ARCH}.${variant}.name")"
 		os_version="$(get_from_kata_deps ".assets.initrd.architecture.${ARCH}.${variant}.version")"
 
-		if [ "${variant}" == "confidential" ]; then
+		if [[ "${variant}" == *-confidential ]]; then
 			export COCO_GUEST_COMPONENTS_TARBALL="$(get_coco_guest_components_tarball_path)"
 			export PAUSE_IMAGE_TARBALL="$(get_pause_image_tarball_path)"
 		fi
@@ -417,37 +417,61 @@ install_initrd_mariner() {
 	install_initrd "mariner"
 }
 
-#Instal NVIDIA GPU image
+# For all nvidia_gpu targets we can customize the stack that is enbled
+# in the VM by setting the NVIDIA_GPU_STACK= environment variable
+#
+# latest | lts -> use the latest and greatest driver or lts release
+# debug        -> enable debugging support
+# compute      -> enable the compute GPU stack, includes utility
+# graphics     -> enable the graphics GPU stack, includes compute
+# dcgm         -> enable the DCGM stack + DGCM exporter
+# nvswitch     -> enable DGX like systems
+# gpudirect    -> enable use-cases like GPUDirect RDMA, GPUDirect GDS
+# dragonball   -> enable dragonball support
+#
+# The full stack can be enabled by setting all the options like:
+#
+# NVIDIA_GPU_STACK="latest,gpu,dcgm,nvswitch,gpudirect"
+#
+# Instal NVIDIA GPU image
 install_image_nvidia_gpu() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt udev"
+	export EXTRA_PKGS="apt"
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute,dcgm"}
 	install_image "nvidia-gpu"
 }
 
-#Install NVIDIA GPU initrd
+# Install NVIDIA GPU initrd
 install_initrd_nvidia_gpu() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt udev"
+	export EXTRA_PKGS="apt"
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute,dcgm"}
 	install_initrd "nvidia-gpu"
 }
 
-#Instal NVIDIA GPU confidential image
+# Instal NVIDIA GPU confidential image
 install_image_nvidia_gpu_confidential() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt udev"
+	export EXTRA_PKGS="apt"
+	export MEASURED_ROOTFS=yes
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_image "nvidia-gpu-confidential"
 }
 
-#Install NVIDIA GPU confidential initrd
+# Install NVIDIA GPU confidential initrd
 install_initrd_nvidia_gpu_confidential() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt udev"
+	export EXTRA_PKGS="apt"
+	export MEASURED_ROOTFS=yes
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_initrd "nvidia-gpu-confidential"
 }
+
+
 
 
 install_se_image() {
@@ -1043,6 +1067,8 @@ handle_build() {
 
 	boot-image-se) install_se_image ;;
 
+	busybox) install_busybox ;;
+
 	coco-guest-components) install_coco_guest_components ;;
 
 	cloud-hypervisor) install_clh ;;
@@ -1068,6 +1094,10 @@ handle_build() {
 
 	kernel-nvidia-gpu-confidential) install_kernel_nvidia_gpu_confidential ;;
 
+	kernel-tdx-experimental) install_kernel_tdx_experimental ;;
+
+	kernel-sev) install_kernel_sev ;;
+
 	nydus) install_nydus ;;
 
 	ovmf) install_ovmf ;;
@@ -1086,9 +1116,18 @@ handle_build() {
 
 	rootfs-image-confidential) install_image_confidential ;;
 
+	rootfs-image-tdx) install_image_tdx ;;
+
+	rootfs-nvidia-gpu-image) install_image_nvidia_gpu ;;
+
+	rootfs-nvidia-gpu-initrd) install_initrd_nvidia_gpu ;;
+
+	rootfs-nvidia-gpu-confidential-image) install_image_nvidia_gpu_confidential ;;
+
+	rootfs-nvidia-gpu-confidential-initrd) install_initrd_nvidia_gpu_confidential ;;
+
 	rootfs-initrd) install_initrd ;;
 
-	rootfs-initrd-confidential) install_initrd_confidential ;;
 
 	rootfs-initrd-mariner) install_initrd_mariner ;;
 
@@ -1118,6 +1157,8 @@ handle_build() {
 		tar cvfJ "${final_tarball_path}" "."
 	fi
 	tar tvf "${final_tarball_path}"
+
+	echo "BUILD TARGET: ${build_target}"
 
 	case ${build_target} in
 		kernel-nvidia-gpu*)
@@ -1250,6 +1291,7 @@ main() {
 		kata-manager
 		kernel
 		kernel-experimental
+		kernel-nvidia-gpu
 		nydus
 		pause-image
 		qemu
@@ -1257,6 +1299,7 @@ main() {
 		rootfs-image
 		rootfs-image-confidential
 		rootfs-initrd
+		rootfs-nvidia-gpu-initrd
 		rootfs-initrd-confidential
 		rootfs-initrd-mariner
 		runk

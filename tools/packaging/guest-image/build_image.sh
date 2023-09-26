@@ -11,6 +11,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+set -x
+
 readonly script_name="$(basename "${BASH_SOURCE[0]}")"
 readonly script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly packaging_root_dir="$(cd "${script_dir}/../" && pwd)"
@@ -37,6 +39,7 @@ build_initrd() {
 	info "initrd os: $os_name"
 	info "initrd os version: $os_version"
 	make initrd \
+		VARIANT="${image_initrd_suffix}" \
 		DISTRO="$os_name" \
 		DEBUG="${DEBUG:-}" \
 		OS_VERSION="${os_version}" \
@@ -48,6 +51,12 @@ build_initrd() {
 		PULL_TYPE="${PULL_TYPE:-default}" \
 		COCO_GUEST_COMPONENTS_TARBALL="${COCO_GUEST_COMPONENTS_TARBALL:-}" \
 		PAUSE_IMAGE_TARBALL="${PAUSE_IMAGE_TARBALL:-}"
+
+	if [[ "${image_initrd_suffix}" == "nvidia-gpu"* ]]; then
+		nvidia_driver_version=$(cat "${builddir}"/initrd-image/*/nvidia_driver_version)
+		artifact_name=${artifact_name/.initrd/"-${nvidia_driver_version}".initrd}
+	fi
+
 	mv "kata-containers-initrd.img" "${install_dir}/${artifact_name}"
 	(
 		cd "${install_dir}"
@@ -60,6 +69,7 @@ build_image() {
 	info "image os: $os_name"
 	info "image os version: $os_version"
 	make image \
+		VARIANT="${image_initrd_suffix}" \
 		DISTRO="${os_name}" \
 		DEBUG="${DEBUG:-}" \
 		USE_DOCKER="1" \
@@ -70,6 +80,12 @@ build_image() {
 		PULL_TYPE="${PULL_TYPE:-default}" \
 		COCO_GUEST_COMPONENTS_TARBALL="${COCO_GUEST_COMPONENTS_TARBALL:-}" \
 		PAUSE_IMAGE_TARBALL="${PAUSE_IMAGE_TARBALL:-}"
+
+	if [[ "${image_initrd_suffix}" == "nvidia-gpu"* ]]; then
+		nvidia_driver_version=$(cat "${builddir}"/rootfs-image/*/nvidia_driver_version)
+		artifact_name=${artifact_name/.image/"-${nvidia_driver_version}".image}
+	fi
+
 	mv -f "kata-containers.img" "${install_dir}/${artifact_name}"
 	if [ -e "root_hash.txt" ]; then
 	    cp root_hash.txt "${install_dir}/"
