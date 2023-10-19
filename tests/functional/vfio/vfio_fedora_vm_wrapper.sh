@@ -156,7 +156,7 @@ ${environment}
 
     export DEBUG=true
     export GOPATH=\${WORKSPACE}/go
-    export PATH=\${GOPATH}/bin:/usr/local/go/bin:/usr/sbin:\${PATH}
+    export PATH=\${GOPATH}/bin:/opt/kata/bin:/usr/local/go/bin:/usr/sbin:\${PATH}
     export GOROOT="/usr/local/go"
 
     # Make sure the packages were installed
