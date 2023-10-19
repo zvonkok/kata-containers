@@ -156,7 +156,7 @@ ${environment}
 
     export DEBUG=true
     export GOPATH=\${WORKSPACE}/go
-    export PATH=\${GOPATH}/bin:/opt/kata/bin:/usr/local/go/bin:/usr/sbin:\${PATH}
+    export PATH=\${GOPATH}/bin:/usr/local/go/bin:/usr/sbin:\${PATH}
     export GOROOT="/usr/local/go"
 
     # Make sure the packages were installed
@@ -168,8 +168,6 @@ ${environment}
 
     sudo mkdir -p /workspace
     sudo mount -t 9p -o access=any,trans=virtio,version=9p2000.L workspace /workspace
-
-    sudo ls -l /workspace
 
     # This assumes that HOME is /home/${USER} which sometime may not be the case
     # Assume that HOME can be on any path and create and chown accordingly
@@ -271,7 +269,8 @@ run_vm() {
 	reload_kvm
 
 	mkdir -p ${repo_root_dir}/kata-artifacts
-	cp /zvonkok/kata-static.tar.xz  ${repo_root_dir}/kata-artifacts/.
+	
+	cp ${WORKSPACE}/kata-static.tar.xz  ${repo_root_dir}/kata-artifacts/.
 
 	sudo /usr/bin/qemu-system-${arch} -m "${memory}" -smp cpus="${cpus}" \
 	   -cpu host,host-phys-bits \
