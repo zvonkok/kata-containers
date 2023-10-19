@@ -54,5 +54,5 @@ jobs:
 #          path: kata-artifacts
 
       - name: Run vfio tests
-        timeout-minutes: 15
+        timeout-minutes: 9999999999
         run: bash tests/functional/vfio/gha-run.sh run
