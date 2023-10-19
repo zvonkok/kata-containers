@@ -311,9 +311,6 @@ main() {
 
 	sudo driverctl set-override "${host_pci}" vfio-pci
 
-
-
-
 	vfio_device="$(get_vfio_path "${host_pci}")"
 	[ -n "${vfio_device}" ] || die "vfio device not found"
 	vfio_major="$(printf '%d' $(stat -c '0x%t' ${vfio_device}))"
