@@ -205,14 +205,10 @@ setup_configuration_file() {
 
 	# Make sure we have set hot_plug_vfio to a reasonable value
 	if [ "$HYPERVISOR" = "qemu" ]; then
-		# if setting does not exist append it after [hypervisor.clh]
-		if ! $(grep -q "^hot_plug_vfio.*" ${kata_config_file}); then
-			sed -i '/^\[hypervisor.qemu\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
-		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "bridge-port"|' "${kata_config_file}"
 	elif [ "$HYPERVISOR" = "clh" ]; then
 		# if setting does not exist append it after [hypervisor.clh]
-		if ! $(grep -q "^hot_plug_vfio.*" ${kata_config_file}); then
+		if ! $(grep -q "hot_plug_vfio" ${kata_config_file}); then
 			sed -i '/^\[hypervisor.clh\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
 		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "root-port"|' "${kata_config_file}"
