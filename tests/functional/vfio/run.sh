@@ -25,6 +25,8 @@ HYPERVISOR=
 MACHINE_TYPE=
 IMAGE_TYPE=
 
+export PATH=/opt/kata/bin:$PATH
+
 cleanup() {
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
