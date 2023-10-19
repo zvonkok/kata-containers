@@ -270,6 +270,9 @@ run_vm() {
 
 	reload_kvm
 
+	echo "### DEBUG repo_root_dir ${repo_root_dir}"
+
+
 	sudo /usr/bin/qemu-system-${arch} -m "${memory}" -smp cpus="${cpus}" \
 	   -cpu host,host-phys-bits \
 	   -machine ${machine_type},accel=kvm,kernel_irqchip=split \
