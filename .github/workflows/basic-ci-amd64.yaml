@@ -1,11 +1,5 @@
 name: CI | Basic amd64 tests
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      
   workflow_call:
     inputs:
       tarball-suffix:
