@@ -171,6 +171,7 @@ ${environment}
     # This assumes that HOME is /home/${USER} which sometime may not be the case
     # Assume that HOME can be on any path and create and chown accordingly
     sudo mkdir -p ${artifacts_dir}
+    sudo chown -R \${USER}:\${USER} ${WORKSPACE}
     sudo chown -R \${USER}:\${USER} ${artifacts_dir}
     trap "cd /workspace; sudo journalctl -b0 > ${artifacts_dir}/journal.log || true; sudo chown -R \${USER} ${artifacts_dir}" EXIT
 
