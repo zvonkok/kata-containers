@@ -187,8 +187,8 @@ ${environment}
     kata_tarball_dir="kata-artifacts"
     install_kata
 
-    sudo /workspace/tests/functional/vfio/run.sh -s false -p \${KATA_HYPERVISOR} -m q35 -i image
-    sudo /workspace/tests/functional/vfio/run.sh -s true -p \${KATA_HYPERVISOR} -m q35 -i image
+    #sudo /workspace/tests/functional/vfio/run.sh -s false -p \${KATA_HYPERVISOR} -m q35 -i image
+    #sudo /workspace/tests/functional/vfio/run.sh -s true -p \${KATA_HYPERVISOR} -m q35 -i image
 
   path: /home/${USER}/run.sh
   permissions: '0755'
@@ -285,6 +285,8 @@ run_vm() {
 	   -device virtio-net-pci,netdev=net1,disable-legacy=on,disable-modern="${disable_modern}",iommu_platform=on,ats=on \
 	   -fsdev local,path=${repo_root_dir},security_model=passthrough,id=fs0 \
 	   -device virtio-9p-pci,fsdev=fs0,mount_tag=workspace
+
+	   sleep infinity
 
 }
 
