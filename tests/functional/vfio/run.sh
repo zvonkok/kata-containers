@@ -25,8 +25,6 @@ HYPERVISOR=
 MACHINE_TYPE=
 IMAGE_TYPE=
 
-export PATH=/opt/kata/bin:$PATH
-
 cleanup() {
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
@@ -239,6 +237,9 @@ setup_configuration_file() {
 	# enable VFIO relevant hypervisor annotations
 	sed -i -e 's/^\(enable_annotations\).*=.*$/\1 = ["enable_iommu"]/' \
 		"${kata_config_file}"
+
+	echo "### DEBUG kata_config_file: ${kata_config_file}"
+	echo "### DEBUG kata_config_file_content: $(cat ${kata_config_file})"		
 }
 
 run_test_container() {
