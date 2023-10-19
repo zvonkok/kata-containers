@@ -41,7 +41,8 @@ function install_dependencies() {
 
 function run() {
 	info "Running cri-containerd tests using ${KATA_HYPERVISOR} hypervisor"
-	"${vfio_dir}"/vfio_fedora_vm_wrapper.sh
+	#"${vfio_dir}"/vfio_fedora_vm_wrapper.sh
+	"${vfio_dir}"/run.sh
 }
 
 function main() {
