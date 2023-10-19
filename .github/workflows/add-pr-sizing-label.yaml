@@ -5,13 +5,6 @@
 
 name: Add PR sizing label
 
-on:
-  pull_request_target:
-    types:
-      - opened
-      - reopened
-      - synchronize
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
