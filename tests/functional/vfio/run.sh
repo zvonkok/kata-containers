@@ -72,6 +72,8 @@ run_container() {
 	local container_id="$1"
 	local bundle_dir="$2"
 
+	echo "### DEBUG config.json\n $(cat ${bundle_dir}/config.json)"
+
 	sudo -E ctr run -d --runtime io.containerd.kata.v2 --config "${bundle_dir}/config.json" "${container_id}"
 }
 
@@ -248,8 +250,20 @@ setup_configuration_file() {
 	sed -i -e 's/^\(enable_annotations\).*=.*$/\1 = ["enable_iommu"]/' \
 		"${kata_config_file}"
 
+	# enable full debug 
+	sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' ${kata_config_file}
+        sed -i -e 's/^ *\(default_memory\).*=.*$/\1 = 4096/g' ${kata_config_file}
+        sed -i -e 's/^# *\(debug_console_enabled\).*=.*$/\1 = true/g' ${kata_config_file}
+        sed -i -e 's/^kernel_params = "\(.*\)"/kernel_params = "\1 agent.log=debug initcall_debug"/g' ${kata_config_file}
+        sed -i -e 's/^ *\(dial_timeout\).*=.*$/\1 = 120/g' ${kata_config_file}
+        # Enable containerd debug
+        sed -i -e 's/level = ""/level = "debug"/g' /etc/containerd/config.toml
+        sudo systemctl restart containerd
+
+
 	echo "### DEBUG kata_config_file: ${kata_config_file}"
 	echo "### DEBUG kata_config_file_content: $(cat ${kata_config_file} | grep -v '^\s*$\|^\s*\#')"		
+
 }
 
 run_test_container() {
