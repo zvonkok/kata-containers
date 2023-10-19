@@ -270,8 +270,8 @@ run_vm() {
 
 	reload_kvm
 
-	echo "### DEBUG repo_root_dir ${repo_root_dir}"
-
+	mkdir -p ${repo_root_dir}/kata-artifacts
+	cp /zvonkok/kata-static.tar.xz  ${repo_root_dir}/kata-artifacts/.
 
 	sudo /usr/bin/qemu-system-${arch} -m "${memory}" -smp cpus="${cpus}" \
 	   -cpu host,host-phys-bits \
