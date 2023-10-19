@@ -168,7 +168,8 @@ ${environment}
 
     sudo mkdir -p /workspace
     sudo mount -t 9p -o access=any,trans=virtio,version=9p2000.L workspace /workspace
-    mkdir -p ${artifacts_dir}
+    sudo mkdir -p ${artifacts_dir}
+    sudo chown -R \${USER}:\${USER} ${artifacts_dir}
     trap "cd /workspace; sudo journalctl -b0 > ${artifacts_dir}/journal.log || true; sudo chown -R \${USER} ${artifacts_dir}" EXIT
 
     pushd /workspace
