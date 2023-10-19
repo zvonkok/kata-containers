@@ -110,6 +110,12 @@ check_vfio() {
 	    die "Expected exactly one VFIO group got: ${group}"
 	fi
 
+	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/)"
+	echo "### DEBUG ls /sys/kernel/iommu_groups/ $debug"
+	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/*/devices)"
+	echo "### DEBUG ls /sys/kernel/iommu_groups/*/devices $debug"
+	
+
 	# There should be two devices in the IOMMU group: the ethernet
 	# device we care about, plus the PCIe to PCI bridge device
 	devs="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/"${group}"/devices)"
@@ -199,8 +205,16 @@ setup_configuration_file() {
 
 	# Make sure we have set hot_plug_vfio to a reasonable value
 	if [ "$HYPERVISOR" = "qemu" ]; then
+		# if setting does not exist append it after [hypervisor.clh]
+		if ! $(grep -q "^hot_plug_vfio.*" ${kata_config_file}); then
+			sed -i '/^\[hypervisor.qemu\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
+		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "bridge-port"|' "${kata_config_file}"
 	elif [ "$HYPERVISOR" = "clh" ]; then
+		# if setting does not exist append it after [hypervisor.clh]
+		if ! $(grep -q "^hot_plug_vfio.*" ${kata_config_file}); then
+			sed -i '/^\[hypervisor.clh\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
+		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "root-port"|' "${kata_config_file}"
 	fi
 
@@ -239,7 +253,7 @@ setup_configuration_file() {
 		"${kata_config_file}"
 
 	echo "### DEBUG kata_config_file: ${kata_config_file}"
-	echo "### DEBUG kata_config_file_content: $(cat ${kata_config_file})"		
+	echo "### DEBUG kata_config_file_content: $(cat ${kata_config_file} | grep -v '^\s*$\|^\s*\#')"		
 }
 
 run_test_container() {
