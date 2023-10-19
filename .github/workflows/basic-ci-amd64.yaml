@@ -1,5 +1,14 @@
 name: CI | Basic amd64 tests
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - labeled
+      - unlabeled
+
   workflow_call:
     inputs:
       tarball-suffix:
@@ -189,11 +198,11 @@ jobs:
       - name: Install dependencies
         run: bash tests/functional/vfio/gha-run.sh install-dependencies
 
-      - name: get-kata-tarball
-        uses: actions/download-artifact@v3
-        with:
-          name: kata-static-tarball-amd64${{ inputs.tarball-suffix }}
-          path: kata-artifacts
+#      - name: get-kata-tarball
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: kata-static-tarball-amd64${{ inputs.tarball-suffix }}
+#          path: kata-artifacts
 
       - name: Run vfio tests
         timeout-minutes: 15
