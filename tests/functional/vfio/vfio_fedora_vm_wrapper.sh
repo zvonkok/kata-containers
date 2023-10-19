@@ -168,6 +168,9 @@ ${environment}
 
     sudo mkdir -p /workspace
     sudo mount -t 9p -o access=any,trans=virtio,version=9p2000.L workspace /workspace
+
+    sudo ls -l /workspace
+
     # This assumes that HOME is /home/${USER} which sometime may not be the case
     # Assume that HOME can be on any path and create and chown accordingly
     sudo mkdir -p ${artifacts_dir}
