@@ -84,12 +84,11 @@ get_ctr_cmd_output() {
 	set +e 
         for i in 1 2 3
         do
-                if ! sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
+                if ! timeout 10s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
                         continue
                 else
                         return 0
                 fi
-                sleep 10
         done
         set -e 
 }
