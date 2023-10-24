@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
+set -x
 [ -z "${DEBUG}" ] || set -x
 set -o errexit
 set -o nounset
@@ -14,7 +14,7 @@ kata_build_dir=${1:-build}
 kata_versions_yaml_file=${2:-""}
 
 tar_path="${PWD}/kata-static.tar.xz"
-kata_versions_yaml_file_path="${PWD}/${kata_versions_yaml_file}"
+kata_versions_yaml_file_path="${kata_versions_yaml_file}"
 
 pushd "${kata_build_dir}"
 tarball_content_dir="${PWD}/kata-tarball-content"
