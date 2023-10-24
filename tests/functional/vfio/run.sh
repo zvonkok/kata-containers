@@ -85,6 +85,10 @@ get_ctr_cmd_output() {
         for i in 1 2 3
         do
                 if ! timeout 10s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
+			sudo -E ctr c ls 
+			sudo -E ctr t ls
+			sudo bash -c "ps aux | grep qemu"
+			sudo journalctl -u containerd | tail -n 200
                         continue
                 else
                         return 0
