@@ -72,6 +72,8 @@ run_container() {
 	local container_id="$1"
 	local bundle_dir="$2"
 
+	echo "### DEBUG config.json\n $(cat ${bundle_dir}/config.json)"
+
 	sudo -E ctr run -d --runtime io.containerd.kata.v2 --config "${bundle_dir}/config.json" "${container_id}"
 }
 
@@ -79,7 +81,17 @@ run_container() {
 get_ctr_cmd_output() {
 	local container_id="$1"
 	shift
-	timeout 30s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"
+	set +e 
+        for i in 1 2 3
+        do
+                if ! sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
+                        continue
+                else
+                        return 0
+                fi
+                sleep 10
+        done
+        set -e 
 }
 
 check_guest_kernel() {
@@ -109,6 +121,12 @@ check_vfio() {
 	if [ $(echo "${group}" | wc -w) != "1" ] ; then
 	    die "Expected exactly one VFIO group got: ${group}"
 	fi
+
+	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/)"
+	echo "### DEBUG ls /sys/kernel/iommu_groups/ $debug"
+	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/*/devices)"
+	echo "### DEBUG ls /sys/kernel/iommu_groups/*/devices $debug"
+	
 
 	# There should be two devices in the IOMMU group: the ethernet
 	# device we care about, plus the PCIe to PCI bridge device
@@ -201,6 +219,10 @@ setup_configuration_file() {
 	if [ "$HYPERVISOR" = "qemu" ]; then
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "bridge-port"|' "${kata_config_file}"
 	elif [ "$HYPERVISOR" = "clh" ]; then
+		# if setting does not exist append it after [hypervisor.clh]
+		if ! $(grep -q "hot_plug_vfio" ${kata_config_file}); then
+			sed -i '/^\[hypervisor.clh\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
+		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "root-port"|' "${kata_config_file}"
 	fi
 
@@ -237,6 +259,21 @@ setup_configuration_file() {
 	# enable VFIO relevant hypervisor annotations
 	sed -i -e 's/^\(enable_annotations\).*=.*$/\1 = ["enable_iommu"]/' \
 		"${kata_config_file}"
+
+	# enable full debug 
+	sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' ${kata_config_file}
+        sed -i -e 's/^ *\(default_memory\).*=.*$/\1 = 4096/g' ${kata_config_file}
+        sed -i -e 's/^# *\(debug_console_enabled\).*=.*$/\1 = true/g' ${kata_config_file}
+        sed -i -e 's/^kernel_params = "\(.*\)"/kernel_params = "\1 agent.log=debug initcall_debug"/g' ${kata_config_file}
+        sed -i -e 's/^ *\(dial_timeout\).*=.*$/\1 = 120/g' ${kata_config_file}
+        # Enable containerd debug
+        sed -i -e 's/level = ""/level = "debug"/g' /etc/containerd/config.toml
+        sudo systemctl restart containerd
+
+
+	echo "### DEBUG kata_config_file: ${kata_config_file}"
+	echo "### DEBUG kata_config_file_content: $(cat ${kata_config_file} | grep -v '^\s*$\|^\s*\#')"		
+
 }
 
 run_test_container() {

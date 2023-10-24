@@ -5,11 +5,6 @@
 
 name: Add newly created issues to the backlog project
 
-on:
-  issues:
-    types:
-      - opened
-      - reopened
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -39,7 +34,7 @@ jobs:
           popd &>/dev/null
 
       - name: Checkout code to allow hub to communicate with the project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Add issue to issue backlog
         env:

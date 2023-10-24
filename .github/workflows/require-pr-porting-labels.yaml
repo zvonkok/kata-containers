@@ -5,15 +5,7 @@
 
 name: Ensure PR has required porting labels
 
-on:
-  pull_request_target:
-    types:
-      - opened
-      - reopened
-      - labeled
-      - unlabeled
-    branches:
-      - main
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -36,7 +28,7 @@ jobs:
 
       - name: Checkout code to allow hub to communicate with the project
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'force-skip-ci') }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0

@@ -168,7 +168,12 @@ ${environment}
 
     sudo mkdir -p /workspace
     sudo mount -t 9p -o access=any,trans=virtio,version=9p2000.L workspace /workspace
-    mkdir -p ${artifacts_dir}
+
+    # This assumes that HOME is /home/${USER} which sometime may not be the case
+    # Assume that HOME can be on any path and create and chown accordingly
+    sudo mkdir -p ${artifacts_dir}
+    sudo chown -R \${USER}:\${USER} ${WORKSPACE}
+    sudo chown -R \${USER}:\${USER} ${artifacts_dir}
     trap "cd /workspace; sudo journalctl -b0 > ${artifacts_dir}/journal.log || true; sudo chown -R \${USER} ${artifacts_dir}" EXIT
 
     pushd /workspace
@@ -263,6 +268,10 @@ run_vm() {
 
 	reload_kvm
 
+	mkdir -p ${repo_root_dir}/kata-artifacts
+	
+	cp ${WORKSPACE}/kata-static.tar.xz  ${repo_root_dir}/kata-artifacts/.
+
 	sudo /usr/bin/qemu-system-${arch} -m "${memory}" -smp cpus="${cpus}" \
 	   -cpu host,host-phys-bits \
 	   -machine ${machine_type},accel=kvm,kernel_irqchip=split \
@@ -276,7 +285,6 @@ run_vm() {
 	   -device virtio-net-pci,netdev=net1,disable-legacy=on,disable-modern="${disable_modern}",iommu_platform=on,ats=on \
 	   -fsdev local,path=${repo_root_dir},security_model=passthrough,id=fs0 \
 	   -device virtio-9p-pci,fsdev=fs0,mount_tag=workspace
-
 }
 
 ssh_vm() {
