@@ -285,9 +285,6 @@ run_vm() {
 	   -device virtio-net-pci,netdev=net1,disable-legacy=on,disable-modern="${disable_modern}",iommu_platform=on,ats=on \
 	   -fsdev local,path=${repo_root_dir},security_model=passthrough,id=fs0 \
 	   -device virtio-9p-pci,fsdev=fs0,mount_tag=workspace
-
-	   sleep infinity
-
 }
 
 ssh_vm() {

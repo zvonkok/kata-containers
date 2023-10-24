@@ -81,7 +81,17 @@ run_container() {
 get_ctr_cmd_output() {
 	local container_id="$1"
 	shift
-	timeout 30s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"
+	set +e 
+        for i in 1 2 3
+        do
+                if ! sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
+                        continue
+                else
+                        return 0
+                fi
+                sleep 10
+        done
+        set -e 
 }
 
 check_guest_kernel() {
