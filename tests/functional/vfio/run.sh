@@ -26,6 +26,9 @@ MACHINE_TYPE=
 IMAGE_TYPE=
 
 cleanup() {
+
+	sleep infinity
+
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
 

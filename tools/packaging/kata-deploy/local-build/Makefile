@@ -148,7 +148,7 @@ virtiofsd-tarball:
 merge-builds:
 	echo $(MK_DIR)
 
-	#$(MK_DIR)/kata-deploy-merge-builds.sh build $(MK_DIR)../../../../"versions.yaml"
+	$(MK_DIR)/kata-deploy-merge-builds.sh build $(MK_DIR)../../../../"versions.yaml"
 
 install-tarball:
 	tar -xf ./kata-static.tar.xz -C /
