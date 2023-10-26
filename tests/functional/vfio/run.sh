@@ -26,6 +26,9 @@ MACHINE_TYPE=
 IMAGE_TYPE=
 
 cleanup() {
+
+	sleep infinity
+
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
 
@@ -38,7 +41,7 @@ host_pci_addr() {
 
 get_vfio_path() {
 	local addr="$1"
-	echo "/dev/vfio/$(basename $(realpath /sys/bus/pci/drivers/vfio-pci/${host_pci}/iommu_group))"
+	echo "/dev/vfio/$(basename $(realpath /sys/bus/pci/drivers/vfio-pci/${addr}/iommu_group))"
 }
 
 pull_rootfs() {
@@ -81,10 +84,12 @@ run_container() {
 get_ctr_cmd_output() {
 	local container_id="$1"
 	shift
+
+
 	set +e 
         for i in 1 2 3
         do
-                if ! sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
+                if ! timeout 10s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
                         continue
                 else
                         return 0
@@ -220,7 +225,7 @@ setup_configuration_file() {
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "bridge-port"|' "${kata_config_file}"
 	elif [ "$HYPERVISOR" = "clh" ]; then
 		# if setting does not exist append it after [hypervisor.clh]
-		if ! $(grep -q "hot_plug_vfio" ${kata_config_file}); then
+		if ! grep -q "hot_plug_vfio" ${kata_config_file}; then
 			sed -i '/^\[hypervisor.clh\]/a hot_plug_vfio = "root-port"' "${kata_config_file}"
 		fi
 		sed -i -e 's|^#*.*hot_plug_vfio.*|hot_plug_vfio = "root-port"|' "${kata_config_file}"
@@ -353,7 +358,8 @@ main() {
 	vfio_major="$(printf '%d' $(stat -c '0x%t' ${vfio_device}))"
 	vfio_minor="$(printf '%d' $(stat -c '0x%T' ${vfio_device}))"
 
-	[ -n "/dev/vfio/vfio" ] || die "vfio control device not found"
+	vfio_device="$(ls /dev/vfio/vfio)"
+	[ -n "${vfio_device}" ] || die "vfio control device not found"
 	vfio_ctl_major="$(printf '%d' $(stat -c '0x%t' /dev/vfio/vfio))"
 	vfio_ctl_minor="$(printf '%d' $(stat -c '0x%T' /dev/vfio/vfio))"
 
