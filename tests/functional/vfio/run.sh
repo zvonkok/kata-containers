@@ -81,14 +81,11 @@ run_container() {
 get_ctr_cmd_output() {
 	local container_id="$1"
 	shift
+
 	set +e 
         for i in 1 2 3
         do
                 if ! timeout 10s sudo -E ctr t exec --exec-id 2 "${container_id}" "${@}"; then
-			sudo -E ctr c ls 
-			sudo -E ctr t ls
-			sudo bash -c "ps aux | grep qemu"
-			sudo journalctl -u containerd | tail -n 200
                         continue
                 else
                         return 0
@@ -124,12 +121,6 @@ check_vfio() {
 	if [ $(echo "${group}" | wc -w) != "1" ] ; then
 	    die "Expected exactly one VFIO group got: ${group}"
 	fi
-
-	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/)"
-	echo "### DEBUG ls /sys/kernel/iommu_groups/ $debug"
-	debug="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/*/devices)"
-	echo "### DEBUG ls /sys/kernel/iommu_groups/*/devices $debug"
-	
 
 	# There should be two devices in the IOMMU group: the ethernet
 	# device we care about, plus the PCIe to PCI bridge device
@@ -356,7 +347,8 @@ main() {
 	vfio_major="$(printf '%d' $(stat -c '0x%t' ${vfio_device}))"
 	vfio_minor="$(printf '%d' $(stat -c '0x%T' ${vfio_device}))"
 
-	[ -n "/dev/vfio/vfio" ] || die "vfio control device not found"
+	vfio_device="$(ls /dev/vfio/vfio)"
+	[ -n "${vfio_device}" ] || die "vfio control device not found"
 	vfio_ctl_major="$(printf '%d' $(stat -c '0x%t' /dev/vfio/vfio))"
 	vfio_ctl_minor="$(printf '%d' $(stat -c '0x%T' /dev/vfio/vfio))"
 

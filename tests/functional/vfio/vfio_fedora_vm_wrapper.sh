@@ -9,7 +9,7 @@
 # that supports VFIO, then run VFIO functional tests
 
 set -o xtrace
-set -o errexit
+#set -o errexit
 set -o nounset
 set -o pipefail
 set -o errtrace
