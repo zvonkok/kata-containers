@@ -9,6 +9,8 @@ export DEBIAN_FRONTEND=noninteractive
 export uname_r=$1
 export run_file_name=$2
 export arch_target=$3
+export rootfs_type=$4
+
 export driver_source=""
 # For open source drivers driver_type="-open" otherwise driver_type="" 
 export driver_version=""
@@ -57,7 +59,8 @@ cleanup_rootfs()
 	done
 
 	apt purge -yqq jq make gcc git xz-utils curl gpg python3-pip \
-		software-properties-common ca-certificates linux-libc-dev
+		software-properties-common ca-certificates linux-libc-dev 
+		
 
 	if [ -n "${driver_version}" ]; then
 		apt purge -yqq nvidia-headless-no-dkms-"${driver_version}${driver_type}" \
@@ -127,6 +130,10 @@ install_nvidia_container_runtime()
 	CHROOT_EOF
 	chmod +x ${hook}
 
+	if [ "${rootfs_type}" == "generic" ]; then
+		echo "chroot: Skipping NVIDIA verifier hook installation"
+		return
+	fi
 
 	local hook=${hooks_dir}/prestart/nvidia-verifier-hook.sh
 	cat <<-'CHROOT_EOF' > ${hook}
@@ -198,6 +205,8 @@ prepare_run_file_drivers()
 
 	driver_source_version=$(compgen -G NVIDIA-* | grep -v '.run' | cut -d'-' -f4)
 
+	echo "$driver_source_version" > /nvidia_driver_version
+
 	popd >> /dev/null
 }
 
@@ -210,6 +219,8 @@ prepare_distribution_drivers()
 	export driver_version
 	echo "chroot: Prepare NVIDIA distribution drivers"
 	eval "${APT_INSTALL}" nvidia-headless-no-dkms-"${driver_version}${driver_type}" nvidia-utils-"${driver_version}"
+
+	echo "${driver_version}" > /nvidia_driver_version
 }
 
 install_build_dependencies() 
@@ -264,6 +275,11 @@ install_kernel_dependencies()
 
 install_nvidia_nvtrust_tools() 
 {
+	if [ "${rootfs_type}" == "generic" ]; then
+		echo "chroot: Skipping NVTRUST Tools installation"
+		return
+	fi
+
 	echo "chroot: Installing NVTRUST Tools"
 
 	eval "${APT_INSTALL}" python3-minimal python3-numpy python3-pip python3-venv git xz-utils

@@ -23,6 +23,7 @@ BASE_TARBALLS = serial-targets \
 	kernel-confidential-tarball \
 	kernel-dragonball-experimental-tarball \
 	kernel-nvidia-gpu-tarball \
+	kernel-nvidia-gpu-confidential-tarball \
 	kernel-nvidia-gpu-snp-tarball \
 	kernel-nvidia-gpu-tdx-experimental-tarball \
 	kernel-tarball \
@@ -102,6 +103,9 @@ kernel-dragonball-experimental-tarball:
 kernel-nvidia-gpu-tarball:
 	${MAKE} $@-build
 
+kernel-nvidia-gpu-confidential-tarball:
+	${MAKE} $@-build
+
 kernel-nvidia-gpu-snp-tarball:
 	${MAKE} $@-build
 
@@ -162,10 +166,23 @@ rootfs-nvidia-gpu-image-tarball:
 rootfs-nvidia-gpu-initrd-tarball:
 	${MAKE} $@-build
 
+rootfs-nvidia-gpu-confidential-image-tarball:
+	${MAKE} $@-build
+
+rootfs-nvidia-gpu-confidential-initrd-tarball:
+	${MAKE} $@-build
+
+
+
 ifndef SKIP_NVIDIA_GPU_KERNEL
-rootfs-nvidia-gpu-initrd-tarball: kernel-nvidia-gpu-tarball kernel-nvidia-gpu-snp-tarball kernel-nvidia-gpu-tdx-experimental-tarball
-rootfs-nvidia-gpu-image-tarball: kernel-nvidia-gpu-tarball kernel-nvidia-gpu-snp-tarball kernel-nvidia-gpu-tdx-experimental-tarball
+rootfs-nvidia-gpu-initrd-tarball: kernel-nvidia-gpu-tarball 
+rootfs-nvidia-gpu-image-tarball: kernel-nvidia-gpu-tarball 
+rootfs-nvidia-gpu-confidential-initrd-tarball: kernel-nvidia-gpu-confidential-tarball
+rootfs-nvidia-gpu-confidential-image-tarball: kernel-nvidia-gpu-confidential-tarball
+
 endif
+
+
 
 rootfs-initrd-tarball:
 	${MAKE} $@-build

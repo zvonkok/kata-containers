@@ -251,7 +251,7 @@ install_initrd() {
 	"${rootfs_builder}" --osname="${os_name}" --osversion="${os_version}" --imagetype=initrd --prefix="${prefix}" --destdir="${destdir}" --image_initrd_suffix="${variant}"
 }
 
-#Instal NVIDIA GPU guest image
+#Instal NVIDIA GPU image
 install_image_nvidia_gpu() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
@@ -268,6 +268,25 @@ install_initrd_nvidia_gpu() {
 	export GOPATH="/root/go"
 	install_initrd "nvidia-gpu"
 }
+
+#Instal NVIDIA GPU confidential image
+install_image_nvidia_gpu_confidential() {
+	export AGENT_POLICY="yes"
+	export AGENT_INIT="yes"
+	export EXTRA_PKGS="apt"
+	export GOPATH="/root/go"
+	install_image "nvidia-gpu-confidential"
+}
+
+#Install NVIDIA GPU confidential initrd
+install_initrd_nvidia_gpu_confidential() {
+	export AGENT_POLICY="yes"
+	export AGENT_INIT="yes"
+	export EXTRA_PKGS="apt"
+	export GOPATH="/root/go"
+	install_initrd "nvidia-gpu-confidential"
+}
+
 
 #Install Mariner guest initrd
 install_initrd_mariner() {
@@ -337,7 +356,7 @@ install_kernel_helper() {
 		kernel_version="$(get_from_kata_deps assets.kernel.sev.version)"
 		default_patches_dir="${repo_root_dir}/tools/packaging/kernel/patches"
 		module_dir="${repo_root_dir}/tools/packaging/kata-deploy/local-build/build/kernel-sev/builddir/kata-linux-${kernel_version#v}-${kernel_kata_config_version}/lib/modules/${kernel_version#v}"
-	elif [[ "${kernel_name}" == "kernel-confidential" ]]; then
+	elif [[ "${kernel_name}" == "kernel-nvidia-gpu-confidential" ]]; then
 		kernel_version="$(get_from_kata_deps assets.kernel.confidential.version)"
 		default_patches_dir="${repo_root_dir}/tools/packaging/kernel/patches"
 		module_dir="${repo_root_dir}/tools/packaging/kata-deploy/local-build/build/kernel-confidential/builddir/kata-linux-${kernel_version#v}-${kernel_kata_config_version}/lib/modules/${kernel_version#v}"
@@ -382,6 +401,16 @@ install_kernel_nvidia_gpu() {
 		"assets.kernel.version" \
 		"kernel-nvidia-gpu" \
 		"-g nvidia -u ${kernel_url} -H deb"
+}
+
+#Instal GPU and TEE enabled kernel asset
+install_kernel_nvidia_gpu_confidential() {
+	local kernel_url="$(get_from_kata_deps assets.kernel.confidential.url)"
+
+	install_kernel_helper \
+		"assets.kernel.confidential.version" \
+		"kernel-nvidia-gpu-confidential" \
+		"-x confidential -g nvidia -u ${kernel_url} -H deb"
 }
 
 #Install GPU and SNP enabled kernel asset
@@ -822,6 +851,8 @@ handle_build() {
 
 	kernel-nvidia-gpu) install_kernel_nvidia_gpu ;;
 
+	kernel-nvidia-gpu-confidential) install_kernel_nvidia_gpu_confidential ;;
+
 	kernel-nvidia-gpu-snp) install_kernel_nvidia_gpu_snp;;
 
 	kernel-nvidia-gpu-tdx-experimental) install_kernel_nvidia_gpu_tdx_experimental;;
@@ -851,6 +882,10 @@ handle_build() {
 	rootfs-nvidia-gpu-image) install_image_nvidia_gpu ;;
 
 	rootfs-nvidia-gpu-initrd) install_initrd_nvidia_gpu ;;
+
+	rootfs-nvidia-gpu-confidential-image) install_image_nvidia_gpu_confidential ;;
+
+	rootfs-nvidia-gpu-confidential-initrd) install_initrd_nvidia_gpu_confidential ;;
 
 	rootfs-initrd) install_initrd ;;
 

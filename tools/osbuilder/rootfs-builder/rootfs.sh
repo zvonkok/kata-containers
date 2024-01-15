@@ -728,7 +728,7 @@ EOF
 				info "Building OPA binary from source at ${opa_repo_url}"
 				build_opa_from_source "${opa_repo_url}" || die "Failed to build OPA"
 			else
-				opa_bin_url="$(get_package_version_from_kata_yaml externals.open-policy-agent.meta.binary)"
+				opa_bin_url="$(get_package_version_from_kata_yaml externals.open-policy-agent.architecture.${ARCH}.binary)"
 				info "Downloading OPA binary from ${opa_bin_url}"
 				curl --fail -L "${opa_bin_url}" -o opa || die "Failed to download OPA"
 			fi
@@ -815,60 +815,63 @@ setup_nvidia_gpu_rootfs()
 {
 	set -x
 
-	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/chroot.sh"
+	local rootfs_type=${1:-"generic"}
+
+	info "nvidia: rootfs_type: $rootfs_type"
+
+
+	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/nvidia_chroot.sh"
 	local nvidia_gpu_init_functions="${script_dir}/nvidia/nvidia_init_functions"
 	local nvidia_gpu_init="${script_dir}/nvidia/nvidia_init"
-	local nvidia_gpu_attest_remote="${script_dir}/nvidia/remote_attestation.py"
-	local nvidia_gpu_attest_local="${script_dir}/nvidia/local_attestation.py"
-	local nvidia_gpu_nvtrust="${BUILDDIR}/nvtrust.tar.xz"
+
+	if [ "$rootfs_type" == "confidential" ]; then
+		local nvidia_gpu_attest_remote="${script_dir}/nvidia/remote_attestation.py"
+		local nvidia_gpu_attest_local="${script_dir}/nvidia/local_attestation.py"
+		local nvidia_gpu_nvtrust="${BUILDDIR}/nvtrust.tar.xz"
+	fi
+
 
 	[ -f "${nvidia_gpu_rootfs_chroot}" ] || die "nvidia_gpu_rootfs_chroot file not found"
 	[ -f "${nvidia_gpu_init_functions}" ] || die "nvidia_gpu_init_functions file not found"
 	[ -f "${nvidia_gpu_init}" ] || die "nvidia_gpu_init file not found"
-	[ -f "${nvidia_gpu_attest_remote}" ] || die "nvidia_gpu_attest_remote file not found"
-	[ -f "${nvidia_gpu_attest_local}" ] || die "nvidia_gpu_attest_local file not found"
-	[ -f "${nvidia_gpu_nvtrust}" ] || die "nvidia_gpu_nvtrust file not found"
 
-	echo "Setup NVIDIA GPU rootfs"
+	if [ "$rootfs_type" == "confidential" ]; then
+		[ -f "${nvidia_gpu_attest_remote}" ] || die "nvidia_gpu_attest_remote file not found"
+		[ -f "${nvidia_gpu_attest_local}" ] || die "nvidia_gpu_attest_local file not found"
+		[ -f "${nvidia_gpu_nvtrust}" ] || die "nvidia_gpu_nvtrust file not found"
+	fi 
+
+	info "nvidia: Setup GPU rootfs type=$rootfs_type"
 	pushd "${ROOTFS_DIR}" >> /dev/null
 
-	mkdir -p ./gpu-attestation/bin
-
-	cp "${nvidia_gpu_rootfs_chroot}"  ./root/chroot.sh
+	cp "${nvidia_gpu_rootfs_chroot}"  ./root/nvidia_chroot.sh
 	cp "${nvidia_gpu_init_functions}" ./nvidia_init_functions
 	cp "${nvidia_gpu_init}"           ./nvidia_init
-	cp "${nvidia_gpu_attest_remote}"  ./gpu-attestation/bin/remote_attestation.py
-	cp "${nvidia_gpu_attest_local}"   ./gpu-attestation/bin/local_attestation.py
-	cp "${nvidia_gpu_nvtrust}"	  ./gpu-attestation/nvtrust.tar.xz
 
-	chmod +x ./root/chroot.sh
+	if [ "$rootfs_type" == "confidential" ]; then
+		mkdir -p ./gpu-attestation/bin
+		cp "${nvidia_gpu_attest_remote}"  ./gpu-attestation/bin/remote_attestation.py
+		cp "${nvidia_gpu_attest_local}"   ./gpu-attestation/bin/local_attestation.py
+		cp "${nvidia_gpu_nvtrust}"	  ./gpu-attestation/nvtrust.tar.xz
+	fi 
+
+	chmod +x ./root/nvidia_chroot.sh
 	chmod +x ./nvidia_init_functions
 	chmod +x ./nvidia_init
 
 	# We need the kernel packages for building the drivers cleanly will be
 	# deinstalled and removed from the roofs once the build finishes.
-	if [ "${ARCH}" == "aarch64" ]; then
-		# Only if the directory exists copy the deb files
-		if [ -d "${BUILDDIR}/kernel-nvidia-gpu/builddir" ]; then
-			cp ${BUILDDIR}/kernel-nvidia-gpu/builddir/linux-*.deb ./root/.
-		fi
-		if [ -d "${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir" ]; then
-			cp ${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir/linux-*.deb ./root/.
-		fi
+	# Only if the directory exists copy the deb files
+	if [ "$rootfs_type" == "generic" ]; then
+		[ -d "${BUILDDIR}/kernel-nvidia-gpu/builddir" ] || die "kernel-nvidia-gpu/builddir directory not found"
+		cp ${BUILDDIR}/kernel-nvidia-gpu/builddir/linux-*.deb ./root/.
+	fi 
+
+	if [ "$rootfs_type" == "confidential" ]; then
+		[ -d "${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir" ] || die "kernel-nvidia-gpu-confidential/builddir directory not found"
+		cp ${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir/linux-*.deb ./root/.
 	fi
 
-	if [ "${ARCH}" == "x86_64" ]; then
-		# Only if the directory exists copy the deb files
-		if [ -d "${BUILDDIR}/kernel-nvidia-gpu/builddir" ]; then
-			cp ${BUILDDIR}/kernel-nvidia-gpu/builddir/linux-*.deb ./root/.
-		fi
-		if [ -d "${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir" ]; then
-			cp ${BUILDDIR}/kernel-nvidia-gpu-confidential/builddir/linux-*.deb ./root/.
-		fi
-#		if [ -d "${BUILDDIR}/kernel-nvidia-gpu-tdx-experimental/builddir" ]; then
-#			cp ${BUILDDIR}/kernel-nvidia-gpu-tdx-experimental/builddir/linux-*.deb ./root/.
-#		fi
-	fi
 
 	# If we find a local downloaded run file build the kernel modules
 	# with it, otherwise use the distribution packages. Run files may have
@@ -883,10 +886,8 @@ setup_nvidia_gpu_rootfs()
 	mount -t proc /proc ./proc
 
 	local uname_r=$(uname -r)
-        chroot . /bin/bash -c "/root/chroot.sh ${uname_r} ${run_file_name} ${ARCH}"
+        chroot . /bin/bash -c "/root/nvidia_chroot.sh ${uname_r} ${run_file_name} ${ARCH} ${rootfs_type}"
 	chroot . /bin/bash -c "dpkg-query -l | grep ^ii" > ${BUILDDIR}/dpkg.sbom.list
-
-
 
 	umount -R ./dev
 	umount ./proc
@@ -956,8 +957,15 @@ main()
 	setup_rootfs
 
 	if [ "${VARIANT}" = "nvidia-gpu" ]; then
-		time setup_nvidia_gpu_rootfs
+		setup_nvidia_gpu_rootfs "generic"
+		return $?
 	fi
+
+	if [ "${VARIANT}" = "nvidia-gpu-confidential" ]; then
+		setup_nvidia_gpu_rootfs "confidential"
+		return $?
+	fi
+
 }
 
 main $*
