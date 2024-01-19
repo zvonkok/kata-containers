@@ -84,10 +84,17 @@ cleanup_rootfs()
 	rm -f /var/log/{nvidia-installer.log,dpkg.log,alternatives.log}
 
 	dpkg --purge apt
+	
+	if [ -e /usr/share/nvidia ]; then 
+		mv /usr/share/nvidia /root/usr_share_nvidia
+	fi 
 
-	mv /usr/share/nvidia /root/usr_share_nvidia
 	rm -rf /usr/share/*
-	mv /root/usr_share_nvidia /usr/share/nvidia
+
+	if [ -e /root/usr_share_nvidia ]; then 
+		mv /root/usr_share_nvidia /usr/share/nvidia
+	fi 
+
 
 	# Clear and regenerate the ld cache
 	rm -f /etc/ld.so.cache
@@ -339,7 +346,7 @@ get_supported_gpus_from_run_file()
 get_supported_gpus_from_distro_drivers() 
 {
 	local source_dir="$1"
-	exit 1
+	#exit 1
 }
 
 # Start of script
