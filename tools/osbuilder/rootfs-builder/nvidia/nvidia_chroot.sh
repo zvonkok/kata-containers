@@ -335,6 +335,26 @@ install_nvidia_nvtrust_tools()
 	popd >> /dev/null	
 }
 
+install_nvidia_dcgm_exporter() 
+{		
+	pushd /root >> /dev/null
+
+	local dex="dcgm-exporter"
+
+	git clone https://github.com/NVIDIA/${dex}
+
+	cd ${dex}
+	make binary check-format
+
+	cp cmd/${dex}/${dex} /usr/bin/
+	
+	setcap 'cap_sys_admin=+ep' /usr/bin/${dex}
+	
+	cp etc /etc/${dex}
+	
+	popd >> /dev/null
+}
+
 get_supported_gpus_from_run_file() 
 {
 	local source_dir="$1"
@@ -391,6 +411,7 @@ fi
 
 time { install_nvidia_container_runtime; }
 time { install_nvidia_nvtrust_tools; }
+time { install_nvidia_dcgm_exporter; }
 time { cleanup_rootfs; }
 
 
