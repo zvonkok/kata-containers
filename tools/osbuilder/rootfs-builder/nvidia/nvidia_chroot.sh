@@ -58,7 +58,7 @@ cleanup_rootfs()
 		apt purge -yqq "${i}"
 	done
 
-	apt purge -yqq jq make gcc git xz-utils curl gpg python3-pip \
+	apt purge -yqq jq make gcc wget git xz-utils curl gpg python3-pip \
 		software-properties-common ca-certificates linux-libc-dev 
 		
 
@@ -335,8 +335,39 @@ install_nvidia_nvtrust_tools()
 	popd >> /dev/null	
 }
 
+install_go () {
+	#https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+
+	TDIR="/root/${FUNCNAME[0]}"
+
+	mkdir $TDIR
+
+	VERSION="1.21.5"
+	PACKAGE="go${VERSION}.linux-${ARCH}.tar.gz"
+
+	pushd "${TDIR}" || exit 1
+
+	if [[ ! -e ${PACKAGE} ]]; then
+		wget https://go.dev/dl/${PACKAGE}
+	fi
+
+	sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf ${PACKAGE}
+	
+	export GOROOT=$(/usr/local/go/bin/go env GOROOT)
+	export GOPATH=${HOME}/go
+	export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
+
+	sudo ln -sf $GOROOT/bin/go /usr/local/bin/.
+
+	popd || exit 1
+}
+
 install_nvidia_dcgm_exporter() 
 {		
+	eval "${APT_INSTALL}" git wget 
+	
+	install_go 
+
 	pushd /root >> /dev/null
 
 	local dex="dcgm-exporter"
@@ -353,6 +384,9 @@ install_nvidia_dcgm_exporter()
 	cp etc /etc/${dex}
 	
 	popd >> /dev/null
+
+	rm -rf /usr/local/go 
+	rm  -f /usr/local/bin/go
 }
 
 get_supported_gpus_from_run_file() 
