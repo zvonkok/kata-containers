@@ -864,12 +864,11 @@ setup_nvidia_gpu_rootfs()
 	# Only if the directory exists copy the deb files
 	local appendix=""
 	if [ "$rootfs_type" == "confidential" ]; then
-		appendix="-${roofs_type}"
+		appendix="-${rootfs_type}"
 	fi
 
-	tar -C ./root -xvf ${BUILDDIR}/kata-static-kernel-headers-nvidia-gpu${appendix}.tar.xz
-
-
+	tar -C ./root -xvf "${BUILDDIR}/kata-static-kernel-headers-nvidia-gpu${appendix}.tar.xz"
+	
 	# If we find a local downloaded run file build the kernel modules
 	# with it, otherwise use the distribution packages. Run files may have
 	# more recent drivers available then the distribution packages.
