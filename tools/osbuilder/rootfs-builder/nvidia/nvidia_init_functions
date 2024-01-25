@@ -120,7 +120,7 @@ mount_setup()
 	not_mounted " /sys/firmware/efi/efivars " && [ -e /sys/firmware/efi/efivars ] && \
 		mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
 
-        mount -o remount,ro /
+        mount -o remount,ro,iversion /
 
         if [ -e /sys/firmware/efi ]; then
                mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
@@ -145,6 +145,21 @@ mount_setup()
 	nvlog_preamble "mount_setup" 
 	nvlog_ok
 }
+
+ima_evm_setup() 
+{	
+	echo "Loading EVM key"
+	keyctl show | grep -q kmk-user || keyctl add user kmk-user "$(cat /etc/keys/kmk-user.blob)" @u > /dev/null
+        keyctl add encrypted evm-key "load $(cat /etc/keys/evm-user.blob)" @u > /dev/null
+
+	echo "Loading pubkeys"
+	ima_id=$(keyctl newring _ima @u) && /usr/bin/evmctl import --rsa /etc/keys/rsa_public.pem "$ima_id" > /dev/null
+	evm_id=$(keyctl newring _evm @u) && /usr/bin/evmctl import --rsa /etc/keys/rsa_public.pem "$evm_id" > /dev/
+	
+	echo "Enabling EVM"
+	echo 1 > /sys/kernel/security/evm
+}
+
 # We need to know if we're running on AMD or Intel CPUs, rename it to amd or intel
 nvidia_query_cpu_vendor()
 {	

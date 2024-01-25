@@ -30,6 +30,9 @@ RUN apt-get update && \
     musl-dev \
     musl-tools \
     xz-utils \
+    keyutils \ 
+    attr \ 
+    ima-evm-utils \
     protobuf-compiler && rm -rf /var/lib/apt/lists/*
 
 @INSTALL_RUST@

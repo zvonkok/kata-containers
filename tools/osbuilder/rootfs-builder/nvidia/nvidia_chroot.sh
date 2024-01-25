@@ -228,8 +228,6 @@ prepare_run_file_drivers()
 
 	driver_source_version=$(compgen -G NVIDIA-* | grep -v '.run' | cut -d'-' -f4)
 
-	echo "$driver_source_version" > /nvidia_driver_version
-
 	popd >> /dev/null
 }
 
@@ -242,8 +240,6 @@ prepare_distribution_drivers()
 	export driver_version
 	echo "chroot: Prepare NVIDIA distribution drivers"
 	eval "${APT_INSTALL}" nvidia-headless-no-dkms-"${driver_version}${driver_type}" nvidia-utils-"${driver_version}"
-
-	echo "${driver_version}" > /nvidia_driver_version
 }
 
 install_build_dependencies() 
@@ -351,60 +347,6 @@ install_nvidia_nvtrust_tools()
 	popd >> /dev/null	
 }
 
-install_go () {
-	#https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
-
-	TDIR="/root/${FUNCNAME[0]}"
-
-	mkdir $TDIR
-
-	VERSION="1.21.5"
-	PACKAGE="go${VERSION}.linux-${ARCH}.tar.gz"
-
-	pushd "${TDIR}" || exit 1
-
-	if [[ ! -e ${PACKAGE} ]]; then
-		wget https://go.dev/dl/${PACKAGE}
-	fi
-
-	rm -rf /usr/local/go && tar -C /usr/local -xzf ${PACKAGE}
-	
-	export GOROOT=$(/usr/local/go/bin/go env GOROOT)
-	export GOPATH=${HOME}/go
-	export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
-
-	ln -sf $GOROOT/bin/go /usr/local/bin/.
-
-	popd || exit 1
-}
-
-install_nvidia_dcgm_exporter() 
-{		
-	eval "${APT_INSTALL}" git wget libc6-dev
-	
-	install_go 
-
-	pushd /root >> /dev/null
-
-	local dex="dcgm-exporter"
-
-	git clone https://github.com/NVIDIA/${dex}
-
-	cd ${dex}
-	make binary check-format
-
-	cp cmd/${dex}/${dex} /usr/bin/
-	
-	setcap 'cap_sys_admin=+ep' /usr/bin/${dex}
-	
-	cp -r etc /etc/${dex}
-	
-	popd >> /dev/null
-
-	rm -rf /usr/local/go 
-	rm  -f /usr/local/bin/go
-}
-
 get_supported_gpus_from_run_file() 
 {
 	local source_dir="$1"
@@ -417,6 +359,20 @@ get_supported_gpus_from_distro_drivers()
 {
 	local source_dir="$1"
 	#exit 1
+}
+
+export_driver_version() 
+{ 
+	for modules_version in /lib/modules.save_from_purge/*; do
+		modinfo "${modules_version}"/kernel/drivers/video/nvidia.ko | grep ^version | awk '{ print $2 }' > /nvidia_driver_version
+		break
+	done
+}
+
+setup_ima_evm() 
+{
+	eval "${APT_INSTALL}"  keyutils
+	apt-mark hold keyutils
 }
 
 # Start of script
@@ -454,6 +410,7 @@ else
 fi
 
 time { build_nvidia_drivers; }
+time { export_driver_version; }
 
 if [ -f /root/"${run_file_name}" ]; then 
 	time { install_userspace_components; }
@@ -461,10 +418,7 @@ fi
 
 time { install_nvidia_container_runtime; }
 time { install_nvidia_nvtrust_tools; }
-time { install_nvidia_dcgm_exporter; }
+time { setup_ima_evm; }
 time { cleanup_rootfs; }
-
-
-
 
 #time create_udev_rule

@@ -68,6 +68,9 @@ RUN apt-get update && \
     make \
     wget \
     pixz \
+    keyutils \
+    attr \ 
+    ima-evm-utils \
     xz-utils && \
     if [ "${ARCH}" != "$(uname -m)" ] && [ "${ARCH}" == "s390x" ]; then \
         apt-get install -y --no-install-recommends \

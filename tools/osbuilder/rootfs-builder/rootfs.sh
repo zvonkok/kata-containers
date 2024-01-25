@@ -225,6 +225,8 @@ docker_extra_args()
 	# debootstrap needs to create device nodes to properly function
 	args+=" --cap-add MKNOD"
 
+	args+=" --privileged"
+
 	case "$1" in
 	gentoo)
 		# Required to build glibc
@@ -885,6 +887,27 @@ setup_nvidia_gpu_rootfs()
         chroot . /bin/bash -c "/root/nvidia_chroot.sh ${uname_r} ${run_file_name} ${ARCH} ${rootfs_type}"
 	chroot . /bin/bash -c "dpkg-query -l | grep ^ii" > ${BUILDDIR}/dpkg.sbom.list
 
+	# Do the IMA/EVM magic
+	mkdir -p ./etc/keys
+	cp "${script_dir}/nvidia/rsa_public.pem" ./etc/keys/.
+	
+	# Whithout TPM Chip 
+	dd if=/dev/urandom bs=1 count=32 status=none | keyctl padd user kmk-user @u
+	keyctl pipe "$(keyctl search @u user kmk-user)" > ./etc/keys/kmk-user.blob
+	keyctl add encrypted evm-key "new user:kmk-user 32" @u
+	keyctl pipe "$(keyctl search @u encrypted evm-key)" > ./etc/keys/evm-user.blob
+
+	# With TPM 2.0 Chip bootstrap
+	# keyctl add trusted kmk-trusted "new 32 keyhandle=0x81000001" @u
+	# keyctl pipe `keyctl search @u trusted kmk-trusted` > /etc/keys/kmk-trusted.blob
+	# keyctl add encrypted evm-key "new trusted:kmk-trusted 32" @u
+	# keyctl pipe `keyctl search @u encrypted evm-key` > /etc/keys/evm-trusted.blob
+
+	evmctl sign --imahash ./root/nvidia_init --key "${script_dir}/nvidia/rsa_private.pem"
+	evmctl sign --imasig  ./root/nvidia_init_functions  --key "${script_dir}/nvidia/rsa_public.pem"
+
+
+
 	umount -R ./dev
 	umount ./proc
 
@@ -935,6 +958,16 @@ detect_host_distro()
 
 main()
 {
+	dd if=/dev/urandom bs=1 count=32 status=none | keyctl padd user kmk-user @u
+	keyctl link @u @s
+
+
+	keyctl pipe "$(keyctl search @u user kmk-user)" > /tmp/kmk-user.blob
+	keyctl add encrypted evm-key "new user:kmk-user 32" @u
+	keyctl pipe "$(keyctl search @u encrypted evm-key)" > /tmp/evm-user.blob
+
+	exit 1
+
 	parse_arguments $*
 	check_env_variables
 

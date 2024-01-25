@@ -128,6 +128,8 @@ docker run \
 	--env ARCH="${ARCH}" \
 	--rm \
 	-w ${script_dir} \
+	--privileged \
+	--security-opt seccomp=unconfined \
 	build-kata-deploy "${kata_deploy_create}" $@
 
 if [ $remove_dot_docker_dir == true ]; then
