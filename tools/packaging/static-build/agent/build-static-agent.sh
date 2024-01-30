@@ -36,7 +36,7 @@ init_env() {
 			;;
 	esac
 	rustup target add ${rust_arch}-unknown-linux-${LIBC}
-
+	export CFLAGS=-mno-outline-atomics
 	export LIBSECCOMP_LINK_TYPE=static
 	export LIBSECCOMP_LIB_PATH=/usr/lib
 }
