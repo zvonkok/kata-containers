@@ -132,14 +132,6 @@ add_policy_to_yaml() {
 	esac
 }
 
-add_policy_to_successful_tests() {
-	info "Add policy to test YAML files"
-	for K8S_TEST_YAML in runtimeclass_workloads_work/*.yaml
-	do
-		add_policy_to_yaml "${K8S_TEST_YAML}"
-	done
-}
-
 test_successful_actions() {
 	info "Test actions that must be successful"
 	for K8S_TEST_ENTRY in ${K8S_TEST_UNION[@]}
@@ -170,7 +162,6 @@ fi
 if policy_tests_enabled; then
 	ensure_yq
 	run_policy_specific_tests
-	add_policy_to_successful_tests
 else
 	info "Policy tests are disabled on this platform"
 fi
