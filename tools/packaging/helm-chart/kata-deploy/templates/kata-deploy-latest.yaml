@@ -41,8 +41,10 @@ spec:
           value: ""
         - name: AGENT_NO_PROXY
           value: ""
-        image: quay.io/kata-containers/kata-deploy:latest
-        imagePullPolicy: Always
+        image: '{{ .Values.kataDeploy.repository }}:{{ .Values.kataDeploy.version
+          }}'
+        imagePullPolicy: '{{ .Values.kataDeploy.imagePullPolicy }}'
+        imagePullSecrets: '{{ .Values.kataDeploy.imagePullSecrets }}'
         lifecycle:
           preStop:
             exec:

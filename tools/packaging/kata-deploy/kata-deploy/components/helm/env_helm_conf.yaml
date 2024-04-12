@@ -8,6 +8,9 @@ spec:
     spec:
       containers:
       - name: kube-kata
+        image: "{{ .Values.kataDeploy.repository }}:{{ .Values.kataDeploy.version }}"
+        imagePullPolicy: "{{ .Values.kataDeploy.imagePullPolicy }}"
+        imagePullSecrets: "{{ .Values.kataDeploy.imagePullSecrets }}"
         env:
           - name: DEBUG
             value: "{{ .Values.kataDeploy.debug }}"
