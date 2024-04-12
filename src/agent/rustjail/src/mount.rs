@@ -197,7 +197,6 @@ pub fn init_rootfs(
         .ok_or_else(|| anyhow!("Could not convert rootfs path to string"))?;
 
     mount(None::<&str>, "/", None::<&str>, flags, None::<&str>)?;
-
     rootfs_parent_mount_private(rootfs)?;
 
     mount(
@@ -207,7 +206,6 @@ pub fn init_rootfs(
         MsFlags::MS_BIND | MsFlags::MS_REC,
         None::<&str>,
     )?;
-
     let mut bind_mount_dev = false;
     for m in &spec.mounts {
         let (mut flags, pgflags, data) = parse_mount(m);
@@ -217,6 +215,16 @@ pub fn init_rootfs(
                 m.destination
             ));
         }
+        // From https://github.com/opencontainers/runtime-spec/blob/main/config.md#mounts
+        // type (string, OPTIONAL) The type of the filesystem to be mounted.
+        // bind may be only specified in the oci spec options -> flags update r#type
+        let m = &{
+            let mut mbind = m.clone();
+            if mbind.r#type.is_empty() && flags & MsFlags::MS_BIND == MsFlags::MS_BIND {
+                mbind.r#type = "bind".to_string();
+            }
+            mbind
+        };
 
         if m.r#type == "cgroup" {
             mount_cgroups(cfd_log, m, rootfs, flags, &data, cpath, mounts)?;
