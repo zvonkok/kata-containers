@@ -19,7 +19,6 @@ use ttrpc::{
     error::get_rpc_status,
     r#async::{Server as TtrpcServer, TtrpcContext},
 };
-use crate::features::get_build_features;
 use anyhow::{anyhow, Context, Result};
 use cgroups::freezer::FreezerState;
 use oci::{LinuxNamespace, Root, Spec};
@@ -1478,7 +1477,6 @@ impl health_ttrpc::Health for HealthService {
     ) -> ttrpc::Result<HealthCheckResponse> {
         let mut resp = HealthCheckResponse::new();
         resp.set_status(HealthCheckResponse_ServingStatus::SERVING);
-        warn!(sl(), "############# health check #############");
         Ok(resp)
     }
 
