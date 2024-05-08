@@ -355,8 +355,6 @@ ifneq (,$(QEMUCMD))
 
     CONFIGS += $(CONFIG_QEMU_SEV)
 
-#################################################################################
-
     CONFIG_FILE_QEMU_SNP = configuration-qemu-snp.toml
     CONFIG_QEMU_SNP = config/$(CONFIG_FILE_QEMU_SNP)
     CONFIG_QEMU_SNP_IN = $(CONFIG_QEMU_SNP).in
