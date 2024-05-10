@@ -749,6 +749,25 @@ EOF
 	create_summary_file "${ROOTFS_DIR}"
 }
 
+setup_nvidia_gpu_admin_tools() 
+{
+	mkdir -p "${BUILDDIR}/setup_nvidia_gpu_admin_tools"
+
+	pushd "${BUILDDIR}/setup_nvidia_gpu_admin_tools" > /dev/null || exit 1
+
+	rm -rf gpu-admin-tools
+	git clone https://github.com/NVIDIA/gpu-admin-tools.git
+
+	rm -rf dist
+	pyinstaller -s -F gpu-admin-tools/nvidia_gpu_tools.py
+	
+	tar cvfJ "${BUILDDIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz -C dist . 
+	
+	tar tvf "${BUILDDIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz
+
+	popd > /dev/null || exit 1
+}
+
 setup_nvidia_gpu_rootfs()
 {
 	set -x
@@ -762,36 +781,22 @@ setup_nvidia_gpu_rootfs()
 	local nvidia_gpu_init_functions="${script_dir}/nvidia/nvidia_init_functions"
 	local nvidia_gpu_init="${script_dir}/nvidia/nvidia_init"
 
-	#if [ "$rootfs_type" == "confidential" ]; then
-	#	local nvidia_gpu_attest_remote="${script_dir}/nvidia/remote_attestation.py"
-	#	local nvidia_gpu_attest_local="${script_dir}/nvidia/local_attestation.py"
-		#local nvidia_gpu_nvtrust="${BUILDDIR}/nvtrust.tar.xz"
-	#fi
-
-
 	[ -f "${nvidia_gpu_rootfs_chroot}" ] || die "nvidia_gpu_rootfs_chroot file not found"
 	[ -f "${nvidia_gpu_init_functions}" ] || die "nvidia_gpu_init_functions file not found"
 	[ -f "${nvidia_gpu_init}" ] || die "nvidia_gpu_init file not found"
 
-	#if [ "$rootfs_type" == "confidential" ]; then
-	#	[ -f "${nvidia_gpu_attest_remote}" ] || die "nvidia_gpu_attest_remote file not found"
-	#	[ -f "${nvidia_gpu_attest_local}" ] || die "nvidia_gpu_attest_local file not found"
-		#[ -f "${nvidia_gpu_nvtrust}" ] || die "nvidia_gpu_nvtrust file not found"
-	#fi
-
 	info "nvidia: Setup GPU rootfs type=$rootfs_type"
 	pushd "${ROOTFS_DIR}" >> /dev/null
+
+	if [ ! -e ${BUILDDIR}/kata-static-nvidia-gpu-admin-tools.tar.xz ]; then 
+		setup_nvidia_gpu_admin_tools
+	fi
+	tar xvf "${BUILDDIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz -C ./usr/local/bin 
+
 
 	cp "${nvidia_gpu_rootfs_chroot}"  ./root/nvidia_chroot.sh
 	cp "${nvidia_gpu_init_functions}" ./nvidia_init_functions
 	cp "${nvidia_gpu_init}"           ./nvidia_init
-
-	#if [ "$rootfs_type" == "confidential" ]; then
-	#	mkdir -p ./gpu-attestation/bin
-	#	cp "${nvidia_gpu_attest_remote}"  ./gpu-attestation/bin/remote_attestation.py
-	#	cp "${nvidia_gpu_attest_local}"   ./gpu-attestation/bin/local_attestation.py
-		#cp "${nvidia_gpu_nvtrust}"	  ./gpu-attestation/nvtrust.tar.xz
-	#fi
 
 	chmod +x ./root/nvidia_chroot.sh
 	chmod +x ./nvidia_init_functions
@@ -805,7 +810,6 @@ setup_nvidia_gpu_rootfs()
 	# We need the kernel packages for building the drivers cleanly will be
 	# deinstalled and removed from the roofs once the build finishes.
 	tar -C ./root -xvf ${BUILDDIR}/kata-static-kernel-nvidia-gpu"${appendix}"-headers.tar.xz
-
 
 	# If we find a local downloaded run file build the kernel modules
 	# with it, otherwise use the distribution packages. Run files may have
@@ -837,8 +841,7 @@ setup_nvidia_gpu_rootfs()
 	# TODO REMOVE THIS SECTION START
 	cp ${script_dir}/nvidia/artifacts/cdi ./usr/bin/cdi
 	chmod +x ./usr/bin/cdi
-
-	cp -r ${script_dir}/nvidia/artifacts/nvidia_gpu_tools ./opt/nvidia_gpu_tool
+	#cp -r ${script_dir}/nvidia/artifacts/nvidia_gpu_tools ./opt/nvidia_gpu_tool
 	# TODO REMOVE THIS SECTION END
 
 	popd  >> /dev/null

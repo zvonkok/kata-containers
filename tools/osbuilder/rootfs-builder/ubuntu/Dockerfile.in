@@ -31,8 +31,13 @@ RUN apt-get update && \
     musl-dev \
     musl-tools \
     protobuf-compiler \
-    xz-utils
+    xz-utils \
+    pip \
+    
+    python3-dev 
 # aarch64 requires this name -- link for all
 RUN if [ ! -f "/usr/bin/$(uname -m)-linux-musl-gcc" ]; then ln -s /usr/bin/musl-gcc "/usr/bin/$(uname -m)-linux-musl-gcc"; fi
 
 @INSTALL_RUST@
+
+RUN pip install pyinstaller

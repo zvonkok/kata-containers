@@ -176,7 +176,7 @@ nvidia_query_cpu_vendor() {
 
 nvidia_gpu_query_cc_mode() {
 	for BDF in "${gpu_bdfs[@]}"; do
-		if /opt/nvidia_gpu_tools/nvidia_gpu_tools --mmio-access-type=sysfs --query-cc-mode --gpu-bdf="${BDF}" 2>&1 | grep "CC mode is on"; then
+		if nvidia_gpu_tools --mmio-access-type=sysfs --query-cc-mode --gpu-bdf="${BDF}" 2>&1 | grep "CC mode is on"; then
 			confidential_compute="on"
 		fi
 	done

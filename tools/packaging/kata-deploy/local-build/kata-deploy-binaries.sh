@@ -1242,6 +1242,15 @@ handle_build() {
 					${build_target}-builder-image-version \
 					${build_target}-sha256sum
 				;;
+			rootfs-nvidia-gpu-*) 
+				sudo oras push \
+					${ARTEFACT_REGISTRY}/${ARTEFACT_REPOSITORY}/cached-artefacts/${build_target}:latest-${TARGET_BRANCH}-$(uname -m) \
+					${final_tarball_name} \
+					"kata-static-nvidia-gpu-admin-tools.tar.xz" \
+					${build_target}-version \
+					${build_target}-builder-image-version \
+					${build_target}-sha256sum
+				;;
 			kernel*-confidential)
 				sudo oras push \
 					${ARTEFACT_REGISTRY}/${ARTEFACT_REPOSITORY}/cached-artefacts/${build_target}:latest-${TARGET_BRANCH}-$(uname -m) \
