@@ -345,6 +345,7 @@ install_image_confidential() {
 #Install guest initrd
 install_initrd() {
 	local variant="${1:-}"
+	local extra_tarballs=""
 
 	initrd_type="initrd"
 	if [ -n "${variant}" ]; then
@@ -376,12 +377,19 @@ install_initrd() {
 
 	[[ "${ARCH}" == "aarch64" && "${CROSS_BUILD}" == "true" ]] && echo "warning: Don't cross build initrd for aarch64 as it's too slow" && exit 0
 
+	if [[ "${variant}" == *"nvidia-gpu"* ]]; then 
+		local nvidia_gpu_admin_tools_name="kata-static-nvidia-gpu-admin-tools.tar.xz"
+		local nvidia_gpu_admin_tools_path="${workdir}/${nvidia_gpu_admin_tools_name}"
+		extra_tarballs+="${nvidia_gpu_admin_tools_name}:${nvidia_gpu_admin_tools_path}"
+	fi 
+
 	install_cached_tarball_component \
 		"${component}" \
 		"${latest_artefact}" \
 		"${latest_builder_image}" \
 		"${final_tarball_name}" \
 		"${final_tarball_path}" \
+		"${extra_tarballs}" \
 		&& return 0
 
 	info "Create initrd"
@@ -544,7 +552,7 @@ install_kernel_helper() {
 	if [[ "${kernel_name}" == "kernel-nvidia-gpu*" ]]; then
 		local kernel_headers_tarball_name="kata-static-${kernel_name}-headers.tar.xz"
 		local kernel_headers_tarball_path="${workdir}/${kernel_headers_tarball_name}"
-		extra_tarballs+=" ${kernel_headers_tarball_name}:${kernel_headers_tarball_path}"
+		extra_tarballs+="${kernel_headers_tarball_name}:${kernel_headers_tarball_path}"
 	fi
 
 	default_patches_dir="${repo_root_dir}/tools/packaging/kernel/patches"

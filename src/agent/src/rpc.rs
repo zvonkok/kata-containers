@@ -64,7 +64,7 @@ use crate::sandbox::Sandbox;
 use crate::storage::{add_storages, update_ephemeral_mounts, STORAGE_HANDLERS};
 use crate::version::{AGENT_VERSION, API_VERSION};
 use crate::AGENT_CONFIG;
-
+use crate::features::get_build_features;
 use crate::trace_rpc_call;
 use crate::tracer::extract_carrier_from_ttrpc;
 
