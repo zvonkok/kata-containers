@@ -432,7 +432,7 @@ install_initrd_nvidia_gpu() {
 install_image_nvidia_gpu_confidential() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt"
+	export EXTRA_PKGS="apt udev"
 	install_image "nvidia-gpu-confidential"
 }
 
@@ -440,7 +440,7 @@ install_image_nvidia_gpu_confidential() {
 install_initrd_nvidia_gpu_confidential() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
-	export EXTRA_PKGS="apt"
+	export EXTRA_PKGS="apt udev"
 	install_initrd "nvidia-gpu-confidential"
 }
 
@@ -1127,8 +1127,10 @@ handle_build() {
 
 	rootfs-image-tdx) install_image_tdx ;;
 
-	rootfs-nvidia-gpu-initrd) install_initrd_nvidia_gpu ;;
+	rootfs-nvidia-gpu-image) install_image_nvidia_gpu ;;
 
+	rootfs-nvidia-gpu-initrd) install_initrd_nvidia_gpu ;;	
+	
 	rootfs-nvidia-gpu-confidential-image) install_image_nvidia_gpu_confidential ;;
 
 	rootfs-nvidia-gpu-confidential-initrd) install_initrd_nvidia_gpu_confidential ;;
