@@ -23,7 +23,7 @@ on:
 
 jobs:
   build-asset:
-    runs-on: s390x
+    runs-on: arm64-nvidia-gpu
     strategy:
       matrix:
         asset:
