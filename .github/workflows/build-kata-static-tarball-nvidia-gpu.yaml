@@ -66,7 +66,7 @@ jobs:
           make "${KATA_ASSET}-tarball"
           build_dir=$(readlink -f build)
           # store-artifact does not work with symlink
-          sudo cp -r "${build_dir}" "kata-build"
+          cp -r "${build_dir}" "kata-build"
         env:
           KATA_ASSET: ${{ matrix.asset }}
           TAR_OUTPUT: ${{ matrix.asset }}.tar.gz
