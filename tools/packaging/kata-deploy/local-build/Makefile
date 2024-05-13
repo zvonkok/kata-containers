@@ -6,6 +6,8 @@
 MK_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MK_DIR := $(dir $(MK_PATH))
 
+include *.mk
+
 # Verbose build
 V := 1
 
