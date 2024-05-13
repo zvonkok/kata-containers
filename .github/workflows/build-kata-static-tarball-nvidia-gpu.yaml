@@ -86,11 +86,8 @@ jobs:
 
   create-kata-tarball:
     runs-on: arm64-nvidia-gpu
-    needs: [build-asset, build-asset-boot-image-se]
+    needs: build-asset
     steps:
-      - name: Take a pre-action for self-hosted runner
-        run: ${HOME}/script/pre_action.sh ubuntu-2204
-
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit-hash }}
@@ -103,7 +100,7 @@ jobs:
       - name: get-artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: kata-artifacts-nvidia-gpu-*${{ inputs.tarball-suffix }}
+          pattern: kata-artifacts-amd64-*${{ inputs.tarball-suffix }}
           path: kata-artifacts
           merge-multiple: true
       - name: merge-artifacts
@@ -112,7 +109,7 @@ jobs:
       - name: store-artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kata-static-tarball-nvidia-gpu${{ inputs.tarball-suffix }}
+          name: kata-static-tarball-amd64${{ inputs.tarball-suffix }}
           path: kata-static.tar.xz
           retention-days: 15
           if-no-files-found: error
