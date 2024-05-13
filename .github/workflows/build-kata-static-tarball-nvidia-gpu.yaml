@@ -28,15 +28,8 @@ jobs:
       matrix:
         asset:
           - agent
-          - coco-guest-components
-          - kernel
-          - kernel-confidential
-          - pause-image
+          - kernel-nvidia-gpu
           - qemu
-          - rootfs-image
-          - rootfs-image-confidential
-          - rootfs-initrd
-          - rootfs-initrd-confidential
           - shim-v2
           - virtiofsd
         stage:
