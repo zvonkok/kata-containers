@@ -35,14 +35,13 @@ jobs:
         stage:
           - ${{ inputs.stage }}
         exclude:
+          - asset: agent
+            stage: release
           - asset: pause-image
             stage: release
           - asset: coco-guest-components
             stage: release
     steps:
-      - name: Take a pre-action for self-hosted runner
-        run: ${HOME}/script/pre_action.sh ubuntu-2204
-
       - name: Login to Kata Containers quay.io
         if: ${{ inputs.push-to-registry == 'yes' }}
         uses: docker/login-action@v3
@@ -68,7 +67,6 @@ jobs:
           build_dir=$(readlink -f build)
           # store-artifact does not work with symlink
           sudo cp -r "${build_dir}" "kata-build"
-          sudo chown -R $(id -u):$(id -g) "kata-build"
         env:
           KATA_ASSET: ${{ matrix.asset }}
           TAR_OUTPUT: ${{ matrix.asset }}.tar.gz
@@ -81,58 +79,13 @@ jobs:
       - name: store-artifact ${{ matrix.asset }}
         uses: actions/upload-artifact@v4
         with:
-          name: kata-artifacts-s390x-${{ matrix.asset }}${{ inputs.tarball-suffix }}
+          name: kata-artifacts-nvidia-gpu-${{ matrix.asset }}${{ inputs.tarball-suffix }}
           path: kata-build/kata-static-${{ matrix.asset }}.tar.xz
           retention-days: 15
           if-no-files-found: error
 
-  build-asset-boot-image-se:
-    runs-on: s390x
-    needs: build-asset
-    steps:
-      - name: Take a pre-action for self-hosted runner
-        run: ${HOME}/script/pre_action.sh ubuntu-2204
-
-      - uses: actions/checkout@v4
-
-      - name: get-artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: kata-artifacts-s390x-*${{ inputs.tarball-suffix }}
-          path: kata-artifacts
-          merge-multiple: true
-
-      - name: Place a host key document
-        run: |
-          mkdir -p "host-key-document"
-          cp "${CI_HKD_PATH}" "host-key-document"
-        env:
-          CI_HKD_PATH: ${{ secrets.CI_HKD_PATH }}
-
-      - name: Build boot-image-se
-        run: |
-          base_dir=tools/packaging/kata-deploy/local-build/
-          cp -r kata-artifacts ${base_dir}/build
-          # Skip building dependant artifacts of boot-image-se-tarball
-          # because we already have them from the previous build
-          sed -i 's/\(^boot-image-se-tarball:\).*/\1/g' ${base_dir}/Makefile
-          make boot-image-se-tarball
-          build_dir=$(readlink -f build)
-          sudo cp -r "${build_dir}" "kata-build"
-          sudo chown -R $(id -u):$(id -g) "kata-build"
-        env:
-          HKD_PATH: "host-key-document"
-
-      - name: store-artifact boot-image-se
-        uses: actions/upload-artifact@v4
-        with:
-          name: kata-artifacts-s390x${{ inputs.tarball-suffix }}
-          path: kata-build/kata-static-boot-image-se.tar.xz
-          retention-days: 1
-          if-no-files-found: error
-
   create-kata-tarball:
-    runs-on: s390x
+    runs-on: arm64-nvidia-gpu
     needs: [build-asset, build-asset-boot-image-se]
     steps:
       - name: Take a pre-action for self-hosted runner
@@ -150,7 +103,7 @@ jobs:
       - name: get-artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: kata-artifacts-s390x-*${{ inputs.tarball-suffix }}
+          pattern: kata-artifacts-nvidia-gpu-*${{ inputs.tarball-suffix }}
           path: kata-artifacts
           merge-multiple: true
       - name: merge-artifacts
@@ -159,7 +112,7 @@ jobs:
       - name: store-artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kata-static-tarball-s390x${{ inputs.tarball-suffix }}
+          name: kata-static-tarball-nvidia-gpu${{ inputs.tarball-suffix }}
           path: kata-static.tar.xz
           retention-days: 15
           if-no-files-found: error
