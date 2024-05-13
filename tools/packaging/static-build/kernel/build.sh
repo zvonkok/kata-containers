@@ -51,21 +51,25 @@ sudo docker pull ${container_image} || \
 sudo docker run --rm -i -v "${repo_root_dir}:${repo_root_dir}" \
 	-w "${PWD}" \
 	"${container_image}" \
+	--env USER=${USER} \
 	bash -c "${kernel_builder} ${kernel_builder_args} setup"
 
 sudo docker run --rm -i -v "${repo_root_dir}:${repo_root_dir}" \
 	-w "${PWD}" \
 	"${container_image}" \
+	--env USER=${USER} \
 	bash -c "${kernel_builder} ${kernel_builder_args} build"
 
 sudo docker run --rm -i -v "${repo_root_dir}:${repo_root_dir}" \
 	-w "${PWD}" \
 	--env DESTDIR="${DESTDIR}" --env PREFIX="${PREFIX}" \
 	"${container_image}" \
+	--env USER=${USER} \
 	bash -c "${kernel_builder} ${kernel_builder_args} install"
 
 sudo docker run --rm -i -v "${repo_root_dir}:${repo_root_dir}" \
 	-w "${PWD}" \
+	--env USER=${USER} \
 	--env DESTDIR="${DESTDIR}" --env PREFIX="${PREFIX}" \
 	"${container_image}" \
 	bash -c "${kernel_builder} ${kernel_builder_args} build-headers"
