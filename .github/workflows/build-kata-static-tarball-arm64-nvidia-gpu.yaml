@@ -30,6 +30,8 @@ jobs:
 #          - agent
 #          - kernel-nvidia-gpu
 #          - qemu
+          - agent-ctl
+          - kata-ctl
           - shim-v2
           - virtiofsd
         stage:
