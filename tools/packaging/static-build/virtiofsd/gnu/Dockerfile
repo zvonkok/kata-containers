@@ -5,6 +5,11 @@
 FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 ARG RUST_TOOLCHAIN
+
+ENV RUSTUP_HOME="/opt/rustup"
+ENV CARGO_HOME="/opt/cargo"
+ENV PATH="/opt/cargo/bin/:${PATH}"
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \

@@ -1139,7 +1139,8 @@ main() {
 	#git config --global --add safe.directory ${repo_root_dir}
 
 	sudo usermod -aG docker "${USER}"
-	sudo chmod 666 /var/run/docker.sock
+	newgrp docker
+	#sudo chmod 666 /var/run/docker.sock
 
 	local build_targets
 	local silent

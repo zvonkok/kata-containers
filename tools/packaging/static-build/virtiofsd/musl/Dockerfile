@@ -5,6 +5,10 @@
 FROM alpine:3.16.2
 ARG RUST_TOOLCHAIN
 
+ENV RUSTUP_HOME="/opt/rustup"
+ENV CARGO_HOME="/opt/cargo"
+ENV PATH="/opt/cargo/bin/:${PATH}"
+
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 RUN apk --no-cache add \
         bash \

@@ -45,7 +45,7 @@ pull_virtiofsd_released_binary() {
 }
 
 init_env() {
-	source "$HOME/.cargo/env"
+	#source "$HOME/.cargo/env"
 
 	extra_rust_flags=" -C link-self-contained=yes"
 	case ${ARCH} in
@@ -74,7 +74,7 @@ init_env() {
 
 build_virtiofsd_from_source() {
 	echo "build viriofsd from source"
-	init_env
+	#init_env
 
 	git clone --depth 1 --branch ${virtiofsd_version} ${virtiofsd_repo} virtiofsd
 	pushd virtiofsd
