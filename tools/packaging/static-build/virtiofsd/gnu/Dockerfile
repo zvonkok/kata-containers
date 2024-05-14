@@ -40,4 +40,4 @@ RUN ARCH=$(uname -m); \
     	echo "RUST_ARCH=${rust_arch}" > /etc/profile.d/rust.sh; \
 	echo "LIBC=${libc}" >> /etc/profile.d/rust.sh; \
 	echo "ARCH_LIBC=${arch_libc}" >> /etc/profile.d/rust.sh; \
-	echo "EXTRA_RUST_FLAGS=${extra_rust_flags}" >> /etc/profile.d/rust.sh;
+	echo "EXTRA_RUST_FLAGS=\"${extra_rust_flags}\"" >> /etc/profile.d/rust.sh;
