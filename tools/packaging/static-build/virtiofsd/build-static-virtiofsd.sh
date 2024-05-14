@@ -75,17 +75,18 @@ init_env() {
 build_virtiofsd_from_source() {
 	echo "build viriofsd from source"
 	#init_env
+	. /etc/profile.d/rust.sh
 
 	git clone --depth 1 --branch ${virtiofsd_version} ${virtiofsd_repo} virtiofsd
 	pushd virtiofsd
 
-	export RUSTFLAGS='-C target-feature=+crt-static'${extra_rust_flags}
+	export RUSTFLAGS='-C target-feature=+crt-static'${EXTRA_RUST_FLAGS}
 	export LIBSECCOMP_LINK_TYPE=static
 	export LIBSECCOMP_LIB_PATH=/usr/lib/${ARCH_LIBC}
 	export LIBCAPNG_LINK_TYPE=static
 	export LIBCAPNG_LIB_PATH=/usr/lib/${ARCH_LIBC}
 
-	cargo build --release --target ${ARCH}-unknown-linux-${LIBC}
+	cargo build --release --target ${RUST_ARCH}-unknown-linux-${LIBC}
 
 	binary=$(find ./ -name virtiofsd)
 	mv -f ${binary} .
