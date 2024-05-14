@@ -44,34 +44,6 @@ pull_virtiofsd_released_binary() {
 	popd
 }
 
-init_env() {
-	#source "$HOME/.cargo/env"
-
-	extra_rust_flags=" -C link-self-contained=yes"
-	case ${ARCH} in
-		"aarch64")
-			LIBC="musl"
-			ARCH_LIBC=""
-			;;
-		"ppc64le")
-			LIBC="gnu"
-			ARCH="powerpc64le"
-			ARCH_LIBC=${ARCH}-linux-${LIBC}
-			extra_rust_flags=""
-			;;
-		"s390x")
-			LIBC="gnu"
-			ARCH_LIBC=${ARCH}-linux-${LIBC}
-			extra_rust_flags=""
-			;;
-		"x86_64")
-			LIBC="musl"
-			ARCH_LIBC=""
-			;;
-	esac
-
-}
-
 build_virtiofsd_from_source() {
 	echo "build viriofsd from source"
 	#init_env
