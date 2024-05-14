@@ -10,6 +10,9 @@ ENV CARGO_HOME="/opt/cargo"
 ENV PATH="/opt/cargo/bin/:${PATH}"
 
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
+
+RUN mkdir ${RUSTUP_HOME} ${CARGO_HOME} && chmod -R a+rwX ${RUSTUP_HOME} ${CARGO_HOME}
+
 RUN apk --no-cache add \
         bash \
         curl \

@@ -12,6 +12,8 @@ ENV PATH="/opt/cargo/bin/:${PATH}"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+RUN mkdir ${RUSTUP_HOME} ${CARGO_HOME} && chmod -R a+rwX ${RUSTUP_HOME} ${CARGO_HOME}
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
