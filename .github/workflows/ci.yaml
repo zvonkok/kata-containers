@@ -24,7 +24,7 @@ jobs:
       target-branch: ${{ inputs.target-branch }}
       
   publish-kata-deploy-payload-arm64-nvidia-gpu:
-    needs: build-kata-static-tarball-arn64-nvidia-gpu
+    needs: build-kata-static-tarball-arm64-nvidia-gpu
     uses: ./.github/workflows/publish-kata-deploy-payload-arm64-nvidia-gpu.yaml
     with:
       tarball-suffix: -${{ inputs.tag }}
