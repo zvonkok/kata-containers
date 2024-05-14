@@ -30,7 +30,7 @@ jobs:
 #          - agent
 #          - kernel-nvidia-gpu
 #          - qemu
-#          - shim-v2
+          - shim-v2
           - virtiofsd
         stage:
           - ${{ inputs.stage }}
