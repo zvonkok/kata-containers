@@ -44,9 +44,6 @@ if [ "${CROSS_BUILD}" == "true" ]; then
        fi
 fi
 
-#sudo groupadd docker
-sudo usermod -aG docker "${USER}"
-sudo chmod 666 /var/run/docker.sock
 
 
 docker pull ${container_image} || \
