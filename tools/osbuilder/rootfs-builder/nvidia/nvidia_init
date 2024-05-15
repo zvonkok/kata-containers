@@ -17,7 +17,7 @@ if assert_ok nvidia_check_if_supported; then
         # skip any GPU related setup if we don't have any GPUs
         if [ -n "${gpu_device_ids}" ]; then
                 #assert_ok nvidia_reset_gpus
-                assert_ok nvidia_persistenced
+                #assert_ok nvidia_persistenced
                 assert_ok nvidia_container_toolkit
                 assert_ok nvidia_process_kernel_params 
         # If we do not have any GPUs at this stage we are hot-plugging
@@ -28,7 +28,7 @@ if assert_ok nvidia_check_if_supported; then
 fi 
 
 # TODO setting the GPU in ready mode till KBS has GPU suport
-nvidia-smi conf-compute -srs 1
+assert_ok nvidia_gpu_set_ready
 
 # Setting AGENT_INIT to yes will make the agent the init process
 exec /sbin/init

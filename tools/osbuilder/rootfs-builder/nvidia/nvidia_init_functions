@@ -182,31 +182,11 @@ nvidia_gpu_query_cc_mode() {
 	done
 }
 
-#uvm_persistence_mode() {
-#	if [ -e /proc/cmdline ]; then
-#		if grep -q "nvidia.uvm.persistence.mode=1" /proc/cmdline; then
-#			echo ${UVM_PERISTENCE_MODE_ENABLED}
-#			return 0
-#		fi
-
-#		if grep -q "nvidia.uvm.persistence.mode=0" /proc/cmdline; then
-#			echo ${UVM_PERISTENCE_MODE_DISABLED}
-#			return 0
-#		fi
-
-#		echo ${UVM_PERISTENCE_MODE_NA}
-#		return 0
-#	fi
-#}
-
-#uvm_modprobe_options() {
-#	if [ -e /proc/cmdline ]; then
-#		if grep -q "nvidia.uvm.modprobe.options=" /proc/cmdline; then
-#			echo ${UVM_PERISTENCE_MODE_ENABLED}
-#			return 0
-#		fi
-#	fi
-#}
+nvidia_gpu_set_ready() {
+	if [ "${confidential_compute}" == "on" ]; then
+		nvidia-smi conf-compute -srs 1
+	fi
+}
 
 nvidia_persistenced() {	
 

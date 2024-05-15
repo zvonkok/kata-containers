@@ -33,7 +33,7 @@ set_arch() {
 
 export ARCH=$(set_arch)
 
-regen_apt_cache_multistrap() 
+OBSOLETE_regen_apt_cache_multistrap() 
 {
 	local multistrap_log=/multistrap.log
 	# if the log file does not exist we need to bail out
@@ -446,133 +446,6 @@ install_kernel_dependencies()
 	rm -f    /root/linux-*deb
 }
 
-OBSOLETE_install_gpu_admin_tools()
-{
-	echo "chroot: Installing GPU admin tools"
-	
-	eval "${APT_INSTALL}" git nuitka python3-minimal 
-		
-	git clone --depth 1 --branch v2024.02.14 https://github.com/NVIDIA/gpu-admin-tools.git /tmp/gpu-admin-tools
-
-	pushd /tmp/gpu-admin-tools >> /dev/null
-
-	nuitka3 --standalone nvidia_gpu_tools.py 
-	cp nvidia_gpu_tools.dist/nvidia_gpu_tools /usr/local/bin/nvidia_gpu_tools
-	
-	popd >> /dev/null
-
-	rm -rf /tmp/gpu-admin-tools
-}
-
-OBSOLETE_install_nvidia_nvtrust_tools() 
-{
-	if [ "${rootfs_type}" != "confidential" ]; then
-		echo "chroot: Skipping NVTRUST Tools installation"
-		return
-	fi
-
-	echo "chroot: Installing NVTRUST Tools"
-
-	eval "${APT_INSTALL}" python3-minimal python3-numpy python3-pip python3-venv git xz-utils
-	# We need a python to run the NVIDIA verifier
-	apt-mark hold python3-minimal
-	apt-mark hold python3-numpy
-
-
-	python3 -m venv  /gpu-attestation
-	# shellcheck source=/dev/null
-	source /gpu-attestation/bin/activate
-
-	pushd /gpu-attestation >> /dev/null
-	if [ -e "nvtrust.tar.xz" ]; then 
-		tar -xvf nvtrust.tar.xz
-	else 
-		git clone https://github.com/NVIDIA/nvtrust.git
-	fi
-	popd >> /dev/null
-
-	#pushd /gpu-attestation/nvtrust/host_tools/python >> /dev/null
-	#cp gpu_cc_tool.py /usr/local/bin/.
-	#chmod +x /usr/local/bin/gpu_cc_tool.py
-
-	# patch for default sysfs mmio access type
-	# change from mmio_access_type = "devmem" to mmio_access_type = "sysfs"
-	#sed -i 's/mmio_access_type = ".*"/mmio_access_type = "sysfs"/g' /usr/local/bin/gpu_cc_tool.py
-
-	#popd >> /dev/null
-
-	pushd /gpu-attestation/nvtrust/guest_tools/gpu_verifiers/local_gpu_verifier >> /dev/null
-	pip3 install .
-	pip3 install nvidia-ml-py
-	popd >> /dev/null
-
-	pushd /gpu-attestation/nvtrust/guest_tools/attestation_sdk/dist >> /dev/null
-	pip3 install --no-input ./nv_attestation_sdk-1.2.0-py3-none-any.whl
-	popd >> /dev/null
-
-	pushd /gpu-attestation/bin >> /dev/null 
-	cp ../nvtrust/guest_tools/attestation_sdk/tests/{NVGPULocalPolicyExample.json,NVGPURemotePolicyExample.json} .
-	popd >> /dev/null
-
-	pushd /gpu-attestation >> /dev/null
-	rm -rf nvtrust nvtrust.tar.xz
-	popd >> /dev/null	
-}
-
-#install_go () {
-	#https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
-
-#	TDIR="/root/${FUNCNAME[0]}"
-
-#	mkdir $TDIR
-
-#	VERSION="1.21.5"
-#	PACKAGE="go${VERSION}.linux-${ARCH}.tar.gz"
-
-#	pushd "${TDIR}" || exit 1
-
-#	if [[ ! -e ${PACKAGE} ]]; then
-#		wget https://go.dev/dl/${PACKAGE}
-#	fi
-
-#	rm -rf /usr/local/go && tar -C /usr/local -xzf "${PACKAGE}"
-	
-#	export GOROOT=$(/usr/local/go/bin/go env GOROOT)
-#	export GOPATH=${HOME}/go
-#	export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
-
-#	ln -sf $GOROOT/bin/go /usr/local/bin/.
-
-#	popd || exit 1
-#}
-
-install_nvidia_dcgm_exporter() 
-{		
-	eval "${APT_INSTALL}" git wget libc6-dev
-	
-	install_go 
-
-	pushd /root >> /dev/null
-
-	local dex="dcgm-exporter"
-
-	git clone https://github.com/NVIDIA/${dex}
-
-	cd ${dex}
-	make binary check-format
-
-	cp cmd/${dex}/${dex} /usr/bin/
-	
-	setcap 'cap_sys_admin=+ep' /usr/bin/${dex}
-	
-	cp -r etc /etc/${dex}
-	
-	popd >> /dev/null
-
-	rm -rf /usr/local/go 
-	rm  -f /usr/local/bin/go
-}
-
 get_supported_gpus_from_run_file() 
 {
 	local source_dir="$1"
@@ -588,11 +461,20 @@ get_supported_gpus_from_distro_drivers()
 	jq . < "${supported_gpus_json}"  | grep '"devid"' | awk '{ print $2 }' | tr -d ',"'  > ${supported_gpu_devids}
 }
 
-export_driver_version() { 
+export_driver_version() 
+{ 
        for modules_version in /lib/modules.save_from_purge/*; do
                modinfo "${modules_version}"/kernel/drivers/video/nvidia.ko | grep ^version | awk '{ print $2 }' > /nvidia_driver_version
                break
        done
+}
+
+install_nvidia_dcgm() 
+{
+	wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+	dpkg -i cuda-keyring_1.0-1_all.deb && rm -f cuda-keyring_1.0-1_all.deb
+	add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+	eval "${APT_INSTALL}" datacenter-gpu-manager
 }
 
 # Start of script
@@ -600,23 +482,16 @@ echo "chroot: Setup NVIDIA GPU rootfs"
 
 
 setup_apt_repositories
-
-#install_gpu_admin_tools
-
-regen_apt_cache_multistrap
+#regen_apt_cache_multistrap
 install_kernel_dependencies
 install_build_dependencies
 prepare_nvidia_drivers
 build_nvidia_drivers
 install_userspace_components
-#log_time OBSOLETE_install_nvidia_container_runtime
 install_nvidia_fabricmanager
 install_nvidia_ctk 
-
-#log_time install_nvidia_verifier_hook
-#log_time install_nvidia_nvtrust_tools
 export_driver_version
-#time { install_nvidia_dcgm_exporter
+install_nvidia_dcgm
 create_udev_rule
 cleanup_rootfs
 

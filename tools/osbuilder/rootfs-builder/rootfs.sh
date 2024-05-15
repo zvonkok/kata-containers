@@ -768,6 +768,26 @@ setup_nvidia_gpu_admin_tools()
 	popd > /dev/null || exit 1
 }
 
+setup_nvidia_dcgm_exporter() 
+{
+	mkdir -p "${BUILDDIR}/setup_nvidia_dcgm_exporter"
+
+	pushd "${BUILDDIR}/setup_nvidia_dcgm_exporter" > /dev/null || exit 1
+	
+	local dex="dcgm-exporter"
+
+	rm -rf "${dex}"
+	git clone https://github.com/NVIDIA/${dex}
+	make -C ${dex} binary
+
+	tar cvfJ "${BUILDDIR}"/kata-static-nvidia-${dex}.tar.xz -C ${dex}/cmd/${dex} ${dex}
+	tar tvf "${BUILDDIR}"/kata-static-nvidia-${dex}.tar.xz
+
+
+	popd > /dev/null || exit 1
+}
+
+
 setup_nvidia_gpu_rootfs()
 {
 	set -x
@@ -793,6 +813,10 @@ setup_nvidia_gpu_rootfs()
 	fi
 	tar xvf "${BUILDDIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz -C ./usr/local/bin 
 
+	if [ ! -e ${BUILDDIR}/kata-static-nvidia-dcgm-exporter.tar.xz ]; then 
+		setup_nvidia_dcgm_exporter
+	fi
+	tar xvf "${BUILDDIR}"/kata-static-nvidia-dcgm-exporter.tar.xz -C ./usr/local/bin 
 
 	cp "${nvidia_gpu_rootfs_chroot}"  ./root/nvidia_chroot.sh
 	cp "${nvidia_gpu_init_functions}" ./nvidia_init_functions
