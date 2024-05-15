@@ -27,13 +27,12 @@ jobs:
     strategy:
       matrix:
         asset:
-#          - agent
-#          - kernel-nvidia-gpu
-#          - qemu
+          - qemu
           - agent-ctl
           - kata-ctl
           - shim-v2
           - virtiofsd
+          - agent
         stage:
           - ${{ inputs.stage }}
         exclude:

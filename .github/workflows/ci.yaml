@@ -34,7 +34,6 @@ jobs:
       commit-hash: ${{ inputs.commit-hash }}
       target-branch: ${{ inputs.target-branch }}
     secrets: inherit
-  
 
 
 # jobs:
@@ -157,13 +156,13 @@ jobs:
 #       target-branch: ${{ inputs.target-branch }}
 #     secrets: inherit
 
-#   run-kata-monitor-tests:
-#     needs: build-kata-static-tarball-amd64
-#     uses: ./.github/workflows/run-kata-monitor-tests.yaml
-#     with:
-#       tarball-suffix: -${{ inputs.tag }}
-#       commit-hash: ${{ inputs.commit-hash }}
-#       target-branch: ${{ inputs.target-branch }}
+   run-kata-monitor-tests:
+     needs: build-kata-static-tarball-arm64-nvidia-gpu
+     uses: ./.github/workflows/run-kata-monitor-tests.yaml
+     with:
+       tarball-suffix: -${{ inputs.tag }}
+       commit-hash: ${{ inputs.commit-hash }}
+       target-branch: ${{ inputs.target-branch }}
 
 #   run-k8s-tests-on-aks:
 #     needs: publish-kata-deploy-payload-amd64
@@ -236,13 +235,13 @@ jobs:
 #       pr-number: ${{ inputs.pr-number }}
 #       target-branch: ${{ inputs.target-branch }}
 
-#   run-metrics-tests:
-#     needs: build-kata-static-tarball-amd64
-#     uses: ./.github/workflows/run-metrics.yaml
-#     with:
-#       tarball-suffix: -${{ inputs.tag }}
-#       commit-hash: ${{ inputs.commit-hash }}
-#       target-branch: ${{ inputs.target-branch }}
+   run-metrics-tests:
+     needs: build-kata-static-tarball-arm64-nvidia-gpu
+     uses: ./.github/workflows/run-metrics.yaml
+     with:
+       tarball-suffix: -${{ inputs.tag }}
+       commit-hash: ${{ inputs.commit-hash }}
+       target-branch: ${{ inputs.target-branch }}
 
 #   run-basic-amd64-tests:
 #     needs: build-kata-static-tarball-amd64
