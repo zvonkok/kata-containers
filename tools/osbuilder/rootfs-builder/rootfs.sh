@@ -508,6 +508,7 @@ build_rootfs_distro()
 			--env EXTRA_PKGS="${EXTRA_PKGS}" \
 			--env OSBUILDER_VERSION="${OSBUILDER_VERSION}" \
 			--env OS_VERSION="${OS_VERSION}" \
+			--env VARIANT="${VARIANT}" \
 			--env INSIDE_CONTAINER=1 \
 			--env SECCOMP="${SECCOMP}" \
 			--env SELINUX="${SELINUX}" \
@@ -744,6 +745,96 @@ EOF
 	create_summary_file "${ROOTFS_DIR}"
 }
 
+readonly BUILD_DIR="/kata-containers/tools/packaging/kata-deploy/local-build/build/"
+
+setup_nvidia_gpu_admin_tools()
+{
+	mkdir -p "${BUILD_DIR}/setup_nvidia_gpu_admin_tools"
+
+	pushd "${BUILD_DIR}/setup_nvidia_gpu_admin_tools" > /dev/null || exit 1
+
+	rm -rf gpu-admin-tools
+	git clone https://github.com/NVIDIA/gpu-admin-tools.git
+
+	rm -rf dist
+	pyinstaller -s -F gpu-admin-tools/nvidia_gpu_tools.py
+
+	tar cvfJ "${BUILD_DIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz -C dist .
+	tar tvf "${BUILD_DIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz
+
+	popd > /dev/null || exit 1
+}
+
+setup_nvidia_gpu_rootfs()
+{
+	local rootfs_type=${1:-""}
+
+	info "nvidia: rootfs_type: $rootfs_type"
+
+
+	local nvidia_gpu_rootfs_chroot="${script_dir}/nvidia/nvidia_chroot.sh"
+	local nvidia_gpu_init_functions="${script_dir}/nvidia/nvidia_init_functions"
+	local nvidia_gpu_init="${script_dir}/nvidia/nvidia_init"
+
+	[ -f "${nvidia_gpu_rootfs_chroot}" ] || die "nvidia_gpu_rootfs_chroot file not found"
+	[ -f "${nvidia_gpu_init_functions}" ] || die "nvidia_gpu_init_functions file not found"
+	[ -f "${nvidia_gpu_init}" ] || die "nvidia_gpu_init file not found"
+
+	info "nvidia: Setup GPU rootfs type=$rootfs_type"
+	pushd "${ROOTFS_DIR}" >> /dev/null
+
+	if [ ! -e ${BUILD_DIR}/kata-static-nvidia-gpu-admin-tools.tar.xz ]; then
+		setup_nvidia_gpu_admin_tools
+	fi
+	tar xvf "${BUILD_DIR}"/kata-static-nvidia-gpu-admin-tools.tar.xz -C ./usr/local/bin
+
+
+	cp "${nvidia_gpu_rootfs_chroot}"  ./root/nvidia_chroot.sh
+	cp "${nvidia_gpu_init_functions}" ./nvidia_init_functions
+	cp "${nvidia_gpu_init}"           ./nvidia_init
+
+	chmod +x ./root/nvidia_chroot.sh
+	chmod +x ./nvidia_init_functions
+	chmod +x ./nvidia_init
+
+	local appendix=""
+	if [ "$rootfs_type" == "confidential" ]; then
+		appendix="-${rootfs_type}"
+	fi
+
+	# We need the kernel packages for building the drivers cleanly will be
+	# deinstalled and removed from the roofs once the build finishes.
+	tar -C ./root -xvf ${BUILD_DIR}/kata-static-kernel-nvidia-gpu"${appendix}"-headers.tar.xz
+
+	# If we find a local downloaded run file build the kernel modules
+	# with it, otherwise use the distribution packages. Run files may have
+	# more recent drivers available then the distribution packages.
+	local run_file_name="nvidia-driver.run"
+	if [ -f ${BUILD_DIR}/${run_file_name} ]; then
+		cp -L ${BUILD_DIR}/${run_file_name} ./root/${run_file_name}
+	fi
+	local run_fm_file_name="nvidia-fabricmanager.run"
+	if [ -f ${BUILD_DIR}/${run_fm_file_name} ]; then
+		cp -L ${BUILD_DIR}/${run_fm_file_name} ./root/${run_fm_file_name}
+	fi
+
+	mount --rbind /dev ./dev
+	mount --make-rslave ./dev
+	mount -t proc /proc ./proc
+
+	local uname_r=$(uname -r)
+        chroot . /bin/bash -c "/root/nvidia_chroot.sh ${uname_r} ${run_file_name} ${run_fm_file_name} ${ARCH} ${rootfs_type}"
+	chroot . /bin/bash -c "dpkg-query -l | grep ^ii" > ${BUILD_DIR}/dpkg.sbom.list
+
+	umount -R ./dev
+	umount ./proc
+
+	# Remove artifacts needed for building the rootfs
+	rm -rf ./root/
+
+	popd  >> /dev/null
+}
+
 parse_arguments()
 {
 	[ "$#" -eq 0 ] && usage && return 0
@@ -801,6 +892,17 @@ main()
 
 	init="${ROOTFS_DIR}/sbin/init"
 	setup_rootfs
+
+	if [ "${VARIANT}" = "nvidia-gpu" ]; then
+		setup_nvidia_gpu_rootfs
+		return $?
+	fi
+
+	if [ "${VARIANT}" = "nvidia-gpu-confidential" ]; then
+		setup_nvidia_gpu_rootfs "confidential"
+		return $?
+	fi
+
 }
 
 main $*
