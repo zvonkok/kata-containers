@@ -33,17 +33,6 @@ set_arch() {
 
 export ARCH=$(set_arch)
 
-OBSOLETE_regen_apt_cache_multistrap() 
-{
-	local multistrap_log=/multistrap.log
-	# if the log file does not exist we need to bail out
-	if [ ! -f "${multistrap_log}" ]; then
-		echo "chroot: ${multistrap_log} file does not exist"
-		exit 1
-	fi
-	eval "${APT_INSTALL}" "$(cat ${multistrap_log})"
-}
-
 # If we hot-plug we need udev to run the nvidia-ctk CDI files generation
 create_udev_rule() 
 {	
@@ -231,60 +220,6 @@ OBSOLETE_install_nvidia_verifier_hook()
 	chmod +x "${hook}"
 }
 
-OBOSOLETE_install_nvidia_container_runtime() 
-{
-	echo "chroot: Installing NVIDIA GPU container runtime"
-
-	# Base  gives a nvidia-ctk and the nvidia-container-runtime 
-	#eval "${APT_INSTALL}" nvidia-container-toolkit-base=1.13.2-1
-	eval "${APT_INSTALL}" nvidia-container-toolkit-base
-	# This gives us the nvidia-container-runtime-hook
-	#eval "${APT_INSTALL}" nvidia-container-toolkit=1.13.2-1
-	eval "${APT_INSTALL}" nvidia-container-toolkit
-
-	sed -i "s/#debug/debug/g"                             		/etc/nvidia-container-runtime/config.toml
-	sed -i "s|/var/log|/var/log/nvidia-kata-containers|g" 		/etc/nvidia-container-runtime/config.toml
-	sed -i "s/#no-cgroups = false/no-cgroups = true/g"    		/etc/nvidia-container-runtime/config.toml
-	sed -i "/\[nvidia-container-cli\]/a no-pivot = true"  		/etc/nvidia-container-runtime/config.toml
-	sed -i "s/disable-require = false/disable-require = true/g"	/etc/nvidia-container-runtime/config.toml
-
-
-	local hooks_dir=/etc/oci/hooks.d
-	mkdir -p ${hooks_dir}/prestart
-	
-	local hook=${hooks_dir}/prestart/nvidia-container-runtime-hook.sh
-	cat <<-'CHROOT_EOF' > ${hook}
-		#!/bin/bash
-
-		. /nvidia_init_functions
-		script=$(basename "$0" .sh)
-		exec &> ${logging_directory}/${script}.log
-
-		/usr/bin/nvidia-container-runtime-hook -debug $@ 
-
-	CHROOT_EOF
-	chmod +x ${hook}
-
-	if [ "${rootfs_type}" != "confidential" ]; then
-		echo "chroot: Skipping NVIDIA verifier hook installation"
-		return
-	fi
-
-	local hook=${hooks_dir}/prestart/nvidia-verifier-hook.sh
-	cat <<-'CHROOT_EOF' > ${hook}
-		#!/bin/bash 
-
-		. /nvidia_init_functions
-		script=$(basename "$0" .sh)
-		exec &> ${logging_directory}/${script}.log
-
-		nvidia_process_kernel_params "nvidia.attestation.mode"
-		nvidia_verifier_hook ${attestation_mode}
-
-	CHROOT_EOF
-	chmod +x ${hook}
-}
-
 build_nvidia_drivers() 
 {
 	echo "chroot: Build NVIDIA drivers"
@@ -469,12 +404,47 @@ export_driver_version()
        done
 }
 
+dcgm_chisel=(
+	"/usr/bin/dcgmi"
+	"/usr/bin/dcgmproftester10"
+	"/usr/bin/dcgmproftester11"
+	"/usr/bin/dcgmproftester12"
+	"/usr/share/nvidia-validation-suite"
+	"/usr/share/dgcm"
+	"/usr/local/dcgm"
+	"/usr/include/dcgm_*.h"
+	"/usr/bin/DcgmProfTesterKernels.ptx"
+	"/usr/lib/systemd/system/dcgm.service"
+	"/usr/lib/systemd/system/nvidia-dcgm.service"
+	"/usr/lib/x86_64-linux-gnu/libdcgm_cublas_proxy10.so"
+	"/usr/lib/x86_64-linux-gnu/libdcgm_cublas_proxy11.so"
+	"/usr/lib/x86_64-linux-gnu/libdcgm_cublas_proxy12.so"
+	"/usr/lib/x86_64-linux-gnu/cmake"
+)
+
 install_nvidia_dcgm() 
 {
-	wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+	curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
 	dpkg -i cuda-keyring_1.0-1_all.deb && rm -f cuda-keyring_1.0-1_all.deb
-	add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+
+	if [ "${arch_target}" == "aarch64" ]; then
+		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/cuda.list
+			deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/ /
+		CHROOT_EOF
+	else
+		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/cuda.list
+			deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /
+		CHROOT_EOF
+	fi
+	apt update
 	eval "${APT_INSTALL}" datacenter-gpu-manager
+
+	for file in "${dcgm_chisel[@]}"; 
+	do 
+    		rm -rf "$file"
+	done
+
+	# chisel the package
 }
 
 # Start of script
@@ -482,7 +452,6 @@ echo "chroot: Setup NVIDIA GPU rootfs"
 
 
 setup_apt_repositories
-#regen_apt_cache_multistrap
 install_kernel_dependencies
 install_build_dependencies
 prepare_nvidia_drivers

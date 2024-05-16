@@ -8,17 +8,6 @@ use rustjail::{pipestream::PipeStream, process::StreamType};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf};
 use tokio::sync::Mutex;
 
-use std::ffi::{CString, OsStr};
-use std::fmt::Debug;
-use std::io;
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
-use std::sync::Arc;
-use ttrpc::{
-    self,
-    error::get_rpc_status,
-    r#async::{Server as TtrpcServer, TtrpcContext},
-};
 use anyhow::{anyhow, Context, Result};
 use cgroups::freezer::FreezerState;
 use oci::{LinuxNamespace, Root, Spec};
@@ -44,6 +33,17 @@ use rustjail::container::{BaseContainer, Container, LinuxContainer, SYSTEMD_CGRO
 use rustjail::mount::parse_mount_table;
 use rustjail::process::Process;
 use rustjail::specconv::CreateOpts;
+use std::ffi::{CString, OsStr};
+use std::fmt::Debug;
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
+use std::sync::Arc;
+use ttrpc::{
+    self,
+    error::get_rpc_status,
+    r#async::{Server as TtrpcServer, TtrpcContext},
+};
 
 use nix::errno::Errno;
 use nix::mount::MsFlags;
@@ -51,7 +51,10 @@ use nix::sys::{stat, statfs};
 use nix::unistd::{self, Pid};
 use rustjail::process::ProcessOperations;
 
-use crate::device::{add_devices, get_virtio_blk_pci_device_name, update_env_pci, handle_cdi_devices};
+use crate::device::{
+    add_devices, get_virtio_blk_pci_device_name, handle_cdi_devices, update_env_pci,
+};
+use crate::features::get_build_features;
 use crate::linux_abi::*;
 use crate::metrics::get_metrics;
 use crate::mount::baremount;
@@ -62,11 +65,10 @@ use crate::pci;
 use crate::random;
 use crate::sandbox::Sandbox;
 use crate::storage::{add_storages, update_ephemeral_mounts, STORAGE_HANDLERS};
-use crate::version::{AGENT_VERSION, API_VERSION};
-use crate::AGENT_CONFIG;
-use crate::features::get_build_features;
 use crate::trace_rpc_call;
 use crate::tracer::extract_carrier_from_ttrpc;
+use crate::version::{AGENT_VERSION, API_VERSION};
+use crate::AGENT_CONFIG;
 
 #[cfg(feature = "agent-policy")]
 use crate::policy::{do_set_policy, is_allowed};
@@ -222,7 +224,7 @@ impl AgentService {
 
         // In guest-kernel mode some devices need extra handling. Taking the
         // GPU as an example the shim will inject CDI annotations that will
-        // be used by the kata-agent to do containerEdits according to the 
+        // be used by the kata-agent to do containerEdits according to the
         // CDI spec coming from a registry that is created on the fly by UDEV
         // rules for a specifc device.
         handle_cdi_devices(&req.devices, &mut oci, &self.sandbox).await?;
@@ -370,6 +372,14 @@ impl AgentService {
         tokio::time::timeout(to, handle)
             .await
             .map_err(|_| anyhow!(nix::Error::ETIME))???;
+
+        // kill nvidia-persistenced process in the VM
+        info!(sl(), "##### kill $(pidof nvidia-persistenced)");
+        let _ = Command::new("kill")
+            .arg("$(pidof nvidia-persistenced)")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
 
         remove_container_resources(&mut *self.sandbox.lock().await, &cid).await
     }

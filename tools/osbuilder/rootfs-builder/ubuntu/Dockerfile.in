@@ -3,9 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG IMAGE_REGISTRY=docker.io
-ARG GO_VERSION=1.22.2
 FROM ${IMAGE_REGISTRY}/ubuntu:@OS_VERSION@
 @SET_PROXY@
+
+
+ARG GO_VERSION=1.22.2
+ENV GO_HOME="/opt"
+ENV PATH="/opt/go/bin:${PATH}"
 
 # makedev tries to mknod from postinst
 RUN [ -x /usr/bin/systemd-detect-virt ] || ( echo "echo docker" >/usr/bin/systemd-detect-virt && chmod +x /usr/bin/systemd-detect-virt )

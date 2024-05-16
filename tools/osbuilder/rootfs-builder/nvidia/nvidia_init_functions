@@ -444,5 +444,32 @@ nvidia_process_kernel_params() {
 	fi
 }
 
+# File: usr/lib/systemd/system/nvidia-dcgm.service
+#
+#[Unit]
+#Description=NVIDIA DCGM service
+#Conflicts=dcgm.service
+
+#[Service]
+#User=root
+#PrivateTmp=false
+
+#Environment="DCGM_HOME_DIR=/var/log/nvidia-dcgm"
+
+#ExecStart=/usr/bin/nv-hostengine -n --service-account nvidia-dcgm
+
+#Restart=on-abort
+
+#[Install]
+#WantedBy=multi-user.target
+nvidia_dcgm_service() 
+{
+	echo "nvidia: DCGM service"
+	export DCGM_HOME_DIR=${logging_directory}/nvidia-dcgm
+	/usr/bin/nv-hostengine -n --service-account nvidia-dcgm
+}
+
+
+
 # The very first step so we can capture all the logs
 mkdir -p "${logging_directory}"
