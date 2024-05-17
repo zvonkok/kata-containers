@@ -20,6 +20,9 @@ if assert_ok nvidia_check_if_supported; then
                 #assert_ok nvidia_persistenced
                 assert_ok nvidia_container_toolkit
                 assert_ok nvidia_process_kernel_params 
+                # The next ones will be only run if CC != "on"
+                assert_ok nvidia_dcgm_service
+                assert_ok nvidia_dcgm_exporter
         # If we do not have any GPUs at this stage we are hot-plugging
         # setup udev to handle initialization of GPUs
         else 

@@ -80,7 +80,8 @@ create_udev_rule()
 	# If the difference is greater than or equal to wait_time, execute the target script
 	if [ "$time_diff" -ge "$wait_time" ]; then
 	        nvidia_container_toolkit
-		nvidia_persistenced
+		nvidia_dcgm_service
+		nvidia_dcgm_exporter
 	fi
 	CHROOT_EOF
 
@@ -190,10 +191,26 @@ install_nvidia_fabricmanager_from_run_file()
 install_nvidia_fabricmanager_from_distribution() 
 {
 	echo "chroot: Install NVIDIA fabricmanager from distribution"
-	eval "${APT_INSTALL}" nvidia-fabricmanager-"${driver_version}"
-	apt-mark hold nvidia-fabricmanager-"${driver_version}"
+	eval "${APT_INSTALL}" nvidia-fabricmanager-"${driver_version}" libnvidia-nscq-"${driver_version}"
+	apt-mark hold nvidia-fabricmanager-"${driver_version}"  libnvidia-nscq-"${driver_version}"
 }
 
+install_nvidia_kill_services_hook() 
+{
+	local hooks_dir=/etc/oci/hooks.d
+	mkdir -p ${hooks_dir}/poststop
+	
+	local hook=${hooks_dir}/poststop/nvidia-persistenced-hook.sh
+	cat <<-'CHROOT_EOF' > "${hook}"
+		#!/bin/bash 
+
+		start-stop-daemon --stop --pidfile /var/run/dcgm-exporter.pid 
+		start-stop-daemon --stop --pidfile /var/run/nvhostengine.pid 
+		start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 
+	CHROOT_EOF
+	chmod +x "${hook}"
+
+}
 
 OBSOLETE_install_nvidia_verifier_hook() 
 {
@@ -462,5 +479,6 @@ install_nvidia_ctk
 export_driver_version
 install_nvidia_dcgm
 create_udev_rule
+install_nvidia_kill_services_hook
 cleanup_rootfs
 

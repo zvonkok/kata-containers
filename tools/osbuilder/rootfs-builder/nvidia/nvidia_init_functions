@@ -1,6 +1,8 @@
 #!/bin/bash -x
 
 export PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin'
+# shellcheck disable=SC2155
+#export product_name=$(cat /sys/class/dmi/id/product_name)
 export confidential_compute="off"
 export supported_gpu_devids="/supported-gpu.devids"
 export logging_directory="/tmp/"
@@ -188,7 +190,10 @@ nvidia_gpu_set_ready() {
 	fi
 }
 
-nvidia_persistenced() {	
+nvidia_persistenced() {
+	
+	svc="nvidia-persistenced"
+	echo "nvidia: starting $svc service"
 
 	cmdline=$(cat /proc/cmdline)
 
@@ -217,21 +222,31 @@ nvidia_persistenced() {
 
 	if [ "${uvm_persistence_mode}" == "${UVM_PERISTENCE_MODE_ENABLED}" ]; then
 		echo "nvidia: enabling uvm persistence mode"
-		nvidia-persistenced --uvm-persistence-mode
+		start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 
+		start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
+			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+			--uvm-persistence-mode
 		return 0
 	elif [ "${uvm_persistence_mode}" == "${UVM_PERISTENCE_MODE_DISABLED}" ]; then
 		echo "nvidia: disabling uvm persistence mode"
-		nvidia-persistenced --no-uvm-persistence-mode
+		start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 	
+		start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
+			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+			--no-uvm-persistence-mode
 		return 0
 	fi
-
-	nvidia-persistenced --uvm-persistence-mode
-
+	start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 
+	start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
+		--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+		--uvm-persistence-mode
 }
 
 nvidia_container_toolkit() {
 	nvidia-ctk system create-device-nodes --control-devices --load-kernel-modules
-	nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.json
+
+	nvidia_persistenced
+
+	nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml
 	nvidia-ctk cdi generate --mode=management --vendor=management.nvidia.com --output=/var/run/cdi/management.nvidia.yaml
 }
 
@@ -389,19 +404,19 @@ nvidia_process_kernel_params() {
 		param_prefix="${which_param}="
 		for param in "${parsed_params[@]}"; do
 			if [[ $param == $param_prefix* ]]; then
-				value=${param#$param_prefix}
+				value=${param#"${param_prefix}"}
 				value=${value#\"} # Remove leading quote if present
 				value=${value%\"} # Remove trailing quote if present
-				echo "nvidia: value of kernel param $which_param: $value"
+				echo "nvidia: value of kernel param ${which_param}: ${value}"
 
 				case $which_param in
 				nvidia.attestation.mode)
-					if ! nvidia_attestation_mode "$value"; then
+					if ! nvidia_attestation_mode "${value}"; then
 						return 1
 					fi
 					;;
 				nvidia.uvm.modprobe.options)
-					uvm_modprobe_options="$value"
+					uvm_modprobe_options="${value}"
 					;;
 				*)
 					# If it's a specific parameter we're looking for, do nothing more here
@@ -413,7 +428,7 @@ nvidia_process_kernel_params() {
 		# Second pass: handle all other parameters without specific filtering
 		for param in "${parsed_params[@]}"; do
 			case $param in
-			
+
 			nvidia.smi.lgc=*)
 				value=${param#nvidia.smi.lgc=}
 				echo "nvidia: value of kernel param nvidia.smi.lgc: $value"
@@ -462,14 +477,56 @@ nvidia_process_kernel_params() {
 
 #[Install]
 #WantedBy=multi-user.target
-nvidia_dcgm_service() 
-{
-	echo "nvidia: DCGM service"
-	export DCGM_HOME_DIR=${logging_directory}/nvidia-dcgm
-	/usr/bin/nv-hostengine -n --service-account nvidia-dcgm
+nvidia_dcgm_service() {
+	if [ $confidential_compute == "on" ]; then
+		echo "nvidia: DCGM service (skipping CC=on)"
+		return
+	fi
+
+	echo "nvidia: DGCM service"
+	start-stop-daemon --start --exec /usr/bin/nv-hostengine  \
+		--pidfile /var/run/nvhostengine.pid -- \
+		--service-account  nv-hostengine -f ${logging_directory}/nv-hostengine.log
 }
+# TLS and Basic Auth
+# Exporter supports TLS and basic auth using exporter-toolkit. To use TLS
+# and/or basic auth, users need to use --web-config-file CLI flag as follows
+#
+# dcgm-exporter --web-config-file=web-config.yaml
+# A sample web-config.yaml file can be fetched from exporter-toolkit
+# repository. The reference of the web-config.yaml file can be consulted in
+# the docs.
 
+# File: dcgm-exporter-entrypoint.sh
+# We want to setcap only when the container is started with the right caps
+# DCGM_EXPORTER=$(readlink -f $(which dcgm-exporter))
+# if [ -z "$NO_SETCAP" ]; then
+#    if setcap 'cap_sys_admin=+ep' $DCGM_EXPORTER; then
+#       if ! $DCGM_EXPORTER -v 1>/dev/null 2>/dev/null; then
+#          >&2 echo "Warning #2: dcgm-exporter doesn't have sufficient privileges to expose profiling metrics. To get profiling metrics with dcgm-exporter, use --cap-add SYS_ADMIN"
+#          setcap 'cap_sys_admin=-ep' $DCGM_EXPORTER
+#       fi
+#    else
+#       >&2 echo "Warning #1: dcgm-exporter doesn't have sufficient privileges to expose profiling metrics. To get profiling metrics with dcgm-exporter, use --cap-add SYS_ADMIN"
+#    fi
+# fi
 
+# In the VM we're already root so we don't need to setcap
+nvidia_dcgm_exporter() {
+	if [ $confidential_compute == "on" ]; then
+		echo "nvidia: DCGM exporter (skipping CC=on)"
+		return
+	fi
+
+	echo "nvidia: DCGM exporter"
+	# /usr/bin/dcgm-exporter -f /tmp/extended-counters.yaml
+
+	svc="dcgm-exporter"
+
+	echo "nvidia: starting $svc service"
+	start-stop-daemon --start --exec /usr/bin/${svc} --background   \
+		--make-pidfile --pidfile /var/run/${svc}.pid 
+}
 
 # The very first step so we can capture all the logs
 mkdir -p "${logging_directory}"

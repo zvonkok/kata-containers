@@ -16,7 +16,7 @@ use subprocess::{ExitStatus, Popen, PopenConfig, PopenError, Redirection};
 use crate::validate::valid_env;
 use crate::{eother, sl};
 
-const DEFAULT_HOOK_TIMEOUT_SEC: i32 = 10;
+const DEFAULT_HOOK_TIMEOUT_SEC: i32 = 20;
 
 /// A simple wrapper over `oci::Hook` to provide `Hash, Eq`.
 ///
