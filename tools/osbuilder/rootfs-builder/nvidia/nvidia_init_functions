@@ -1,73 +1,99 @@
-#!/bin/bash -x
+#!/bin/sh 
 
-export PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin'
+unset PATH
+unset CDPATH
+
 # shellcheck disable=SC2155
 #export product_name=$(cat /sys/class/dmi/id/product_name)
-export confidential_compute="off"
-export supported_gpu_devids="/supported-gpu.devids"
-export logging_directory="/tmp/"
-export assert_log_file="/tmp/.assert.log"
-export cpu_vendor=""
 
-declare -i ERR_NOT_SUPPORTED=1
-declare -i DEBUG_ENABLED=1
-declare -i DEBUG_DISABLED=0
+SUPPORTED_GPU_DEVIDS="/supported-gpu.devids"
+ASSERT_LOG_FILE="/tmp/.assert.log"
+LOGGING_DIRECTORY="/tmp/"
 
-declare -i UVM_PERISTENCE_MODE_ENABLED=1
-declare -i UVM_PERISTENCE_MODE_DISABLED=0
+uvm_modprobe_options=""
+uvm_persistence_mode=""
+confidential_compute="off"
+cpu_vendor=""
+debug=""
+
+gpu_device_ids=""
+gpu_bdfs=""
+
+
+ERR_NOT_SUPPORTED=1
+
+DEBUG_ENABLED=1
+DEBUG_DISABLED=0
+
+UVM_PERISTENCE_MODE_ENABLED=1
+UVM_PERISTENCE_MODE_DISABLED=0
 
 nvlog_preamble() {
 	printf "nvidia: %30s" "$1"
 }
 
 nvlog_ok() {
-	# No additional parametear just print [OK]
-	if [ -z "${1}" ]; then
-		printf "%10s\n" "[OK]"
+	# No additional parameter, just print [OK]
+	if [ -z "$1" ]; then
+		printf "%10s\n" "[ok]"
 		return
 	fi
-	# If we have a var to print, transform to uppper case
-	printf "%10s\n" "[${!1^^}]"
+
+	var_value=$(eval "echo \$$1")
+	printf "%10s\n" "[$var_value]"
 }
 
 nvlog_failed() {
-	printf "%10s\n" "[FAILED]"
+	printf "%10s\n" "[failed]"
+	echo 1 /proc/sys/kernel/panic
 }
 
 nvlog_debug() {
-	if [ ! -e ${assert_log_file} ]; then
+	if [ ! -e "${ASSERT_LOG_FILE}" ]; then
 		return
 	fi
+
+	# Read the file directly within the while loop
 	while IFS= read -r line; do
 		if [ -z "$line" ]; then
 			continue
 		fi
 		printf "        %s\n" "$line"
-	done <<<"$(cat ${assert_log_file})"
+	done <"${ASSERT_LOG_FILE}"
 }
+
 
 debug_enabled() {
-	if [ -e /proc/cmdline ]; then
-		if grep -q "nvidia.rd.debug=1" /proc/cmdline; then
-			echo ${DEBUG_ENABLED}
-			return 0
-		fi
+    if [ -e /proc/cmdline ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *nvidia.rd.debug=1*)
+                    echo "$DEBUG_ENABLED"
+                    return 0
+                    ;;
+                *nvidia.rd.debug=0*)
+                    echo "$DEBUG_DISABLED"
+                    return 0
+                    ;;
+            esac
+        done < /proc/cmdline
 
-		if grep -q "nvidia.rd.debug=0" /proc/cmdline; then
-			echo ${DEBUG_DISABLED}
-			return 0
-		fi
-
-		echo ${DEBUG_DISABLED}
-		return 0
-	fi
+        # If neither debug setting is found, return DEBUG_DISABLED
+        echo "$DEBUG_DISABLED"
+        return 0
+    fi
+    # If /proc/cmdline does not exist, return DEBUG_DISABLED
+    echo "$DEBUG_DISABLED"
+    return 0
 }
 
+
 assert_ok() {
-	local assert_function=$1
-	local assert_result=$2
+	assert_function=$1
+	assert_result=$2
+
 	nvlog_preamble "${assert_function}"
-	if $assert_function >${assert_log_file} 2>&1; then
+	if $assert_function >${ASSERT_LOG_FILE} 2>&1; then
 		nvlog_ok "${assert_result}"
 		[ "${debug}" = "${DEBUG_ENABLED}" ] && nvlog_debug
 		return 0
@@ -78,136 +104,177 @@ assert_ok() {
 	fi
 }
 
-export debug=
-
 is_mounted() {
-	local mount_point=$1
-	if [ -e /proc/mounts ]; then
-		if grep -q "${mount_point}" /proc/mounts; then
-			return 0
-		fi
-	fi
-	return 1
+    mount_point=$1
+
+    if [ -e /proc/mounts ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *" $mount_point "*)  # Match the mount point as a whole word
+                    return 0
+                    ;;
+            esac
+        done < /proc/mounts
+    fi
+    return 1
 }
 
 not_mounted() {
-	local mount_point=$1
-	if [ -e /proc/mounts ]; then
-		if grep -q "${mount_point}" /proc/mounts; then
-			return 1
-		fi
-	fi
-	return 0
+    mount_point=$1
+
+    if [ -e /proc/mounts ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *" $mount_point "*)  # Match the mount point as a whole word
+                    return 1
+                    ;;
+            esac
+        done < /proc/mounts
+    fi
+    return 0
+}
+
+nvidia_rootfs_readonly() {
+	/bin/rm /bin/ln 
+	/bin/rm /bin/mknod
+	/bin/rm /bin/nvidia_gpu_tools
+	/bin/rm /bin/grep
+	/bin/rm /bin/uname
+	/bin/rm /bin/mountpoint
+	# TEST /bin/rm /bin/udevadm
+	/bin/rm /bin/mkdir
+
+	/bin/mount -o remount,ro /
 }
 
 mount_setup() {
-	is_mounted " /proc " || mount -t proc proc /proc -o nosuid,noexec,nodev
-	is_mounted " /dev " || mount -t devtmpfs dev /dev -o mode=0755,nosuid
-	is_mounted " /sys " || mount -t sysfs sysfs /sys -o nosuid,noexec,nodev
-	is_mounted " /run " || mount -t tmpfs run /run -o nosuid,nodev,mode=0755
-	is_mounted " /tmp " || mount -t tmpfs tmpfs /tmp -o nosuid,noexec,nodev
-	is_mounted " /sys/kernel/security " || mount -t securityfs security /sys/kernel/security -o nosuid,nodev,noexec,relatime
+	is_mounted " /proc " || /bin/mount -t proc proc    /proc -o nosuid,noexec,nodev
+	is_mounted " /dev "  || /bin/mount -t devtmpfs dev /dev  -o mode=0755,nosuid
+	is_mounted " /sys "  || /bin/mount -t sysfs sysfs  /sys  -o nosuid,noexec,nodev
+	is_mounted " /run "  || /bin/mount -t tmpfs run    /run  -o nosuid,nodev,mode=0755
+	is_mounted " /tmp "  || /bin/mount -t tmpfs tmpfs  /tmp  -o nosuid,noexec,nodev
+	is_mounted " /sys/kernel/security " || /bin/mount -t securityfs security /sys/kernel/security -o nosuid,nodev,noexec,relatime
 	not_mounted " /sys/firmware/efi/efivars " && [ -e /sys/firmware/efi/efivars ] &&
-		mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
-
-	mount -o remount,ro /
+		/bin/mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
 
 	if [ -e /sys/firmware/efi ]; then
-		mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
+		/bin/mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec
 	fi
 
 	# Setup /dev symlinks
 	if [ -e /proc/kcore ]; then
-		ln -sfT /proc/kcore /dev/core
+		/bin/ln -sfT /proc/kcore /dev/core
 	fi
-	ln -sfT /proc/self/fd /dev/fd
-	ln -sfT /proc/self/fd/0 /dev/stdin
-	ln -sfT /proc/self/fd/1 /dev/stdout
-	ln -sfT /proc/self/fd/2 /dev/stderr
+	/bin/ln -sfT /proc/self/fd /dev/fd
+	/bin/ln -sfT /proc/self/fd/0 /dev/stdin
+	/bin/ln -sfT /proc/self/fd/1 /dev/stdout
+	/bin/ln -sfT /proc/self/fd/2 /dev/stderr
 
 	# setub dev/null zero raandom urandom if not exist create
 	if [ ! -e /dev/null ]; then
-		mknod -m 666 /dev/null c 1 3
+		/bin/mknod -m 666 /dev/null c 1 3
 	fi
 	if [ ! -e /dev/zero ]; then
-		mknod -m 666 /dev/zero c 1 5
+		/bin/mknod -m 666 /dev/zero c 1 5
 	fi
 	if [ ! -e /dev/random ]; then
-		mknod -m 666 /dev/random c 1 8
+		/bin/mknod -m 666 /dev/random c 1 8
 	fi
 	if [ ! -e /dev/urandom ]; then
-		mknod -m 666 /dev/urandom c 1 9
+		/bin/mknod -m 666 /dev/urandom c 1 9
 	fi
-
+	
 	debug=$(debug_enabled)
-
-	if [ "${debug}" = DEBUG_ENABLED ]; then
-		mkdir /tmp/shared
-		mount -t 9p -o trans=virtio shared /tmp/shared || true
-	fi
 
 	nvlog_preamble "mount_setup"
 	nvlog_ok
 }
 
+
+nvidia_chrony_setup() {
+	if [ ! -e /etc/chrony/chrony.conf ]; then
+		echo "nvidia: /etc/chrony/chrony.conf not found"
+		exit 1
+	fi
+	/etc/init.d/chrony start
+}
+
 nvidia_udev_setup() {
+	if [ ! -e /etc/udev/udev.conf ]; then
+		echo "nvidia: /etc/udev/udev.conf not found"
+		exit 1
+	fi
 	/etc/init.d/udev start
 }
 
-# We need to know if we're running on AMD or Intel CPUs, rename it to amd or intel
 nvidia_query_cpu_vendor() {
-	local cpu_vendor_file="/proc/cpuinfo"
-	if [ -e "${cpu_vendor_file}" ]; then
-		if grep -q "AuthenticAMD" "${cpu_vendor_file}"; then
-			cpu_vendor="amd"
-			return 0
-		fi
+    cpu_vendor_file="/proc/cpuinfo"
+    cpu_vendor=""
 
-		if grep -q "GenuineIntel" "${cpu_vendor_file}"; then
-			cpu_vendor="intel"
-			return 0
-		fi
-
-		if grep "CPU implementer" "${cpu_vendor_file}" | grep -q "0x41"; then
-			cpu_vendor="arm"
-			return 0
-		fi
-	fi
-	return 1
+    if [ -e "$cpu_vendor_file" ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *AuthenticAMD*)
+                    cpu_vendor="amd"
+                    return 0
+                    ;;
+                *GenuineIntel*)
+                    cpu_vendor="intel"
+                    return 0
+                    ;;
+                "CPU implementer"*"0x41"*)
+                    cpu_vendor="arm"
+                    return 0
+                    ;;
+            esac
+        done < "$cpu_vendor_file"
+    fi
+    return 1
 }
 
+#nvidia_gpu_query_cc_mode() {
+#	for BDF in "${gpu_bdfs[@]}"; do
+#		if nvidia_gpu_tools --mmio-access-type=sysfs --query-cc-mode --gpu-bdf="${BDF}" 2>&1 | grep "CC mode is on"; then
+#			confidential_compute="on"
+#		fi
+#	done
+#}
+
 nvidia_gpu_query_cc_mode() {
-	for BDF in "${gpu_bdfs[@]}"; do
-		if nvidia_gpu_tools --mmio-access-type=sysfs --query-cc-mode --gpu-bdf="${BDF}" 2>&1 | grep "CC mode is on"; then
-			confidential_compute="on"
-		fi
-	done
+    confidential_compute="off"  # Initialize the variable
+    for BDF in $gpu_bdfs; do
+        output=$(/bin/nvidia_gpu_tools --mmio-access-type=sysfs --query-cc-mode --gpu-bdf="$BDF" 2>&1)
+        # Check if the output contains "CC mode is on"
+        case "$output" in
+            *"CC mode is on"*)
+                confidential_compute="on"
+                ;;
+        esac
+    done
 }
 
 nvidia_gpu_set_ready() {
-	if [ "${confidential_compute}" == "on" ]; then
+	if [ "${confidential_compute}" = "on" ]; then
 		nvidia-smi conf-compute -srs 1
 	fi
 }
 
 nvidia_persistenced() {
-	
-	svc="nvidia-persistenced"
-	echo "nvidia: starting $svc service"
+	echo "nvidia: starting nvidia-persistenced service"
 
 	cmdline=$(cat /proc/cmdline)
 
 	# If CC=off and Intel cpu we need to set nvidia kernel parameter
-	if [ "${confidential_compute}" == "off" ] && [ "${cpu_vendor}" == "intel" ]; then
+	if [ "${confidential_compute}" = "off" ] && [ "${cpu_vendor}" = "intel" ]; then
 		echo "nvidia: modprobe nvidia NVreg_RegistryDwords=\"RmNvswitchGpioDetect=2\""
-		modprobe nvidia NVreg_RegistryDwords="RmNvswitchGpioDetect=2"
+		/sbin/modprobe nvidia NVreg_RegistryDwords="RmNvswitchGpioDetect=2"
 	fi
 
 	nvidia_process_kernel_params "$cmdline" "nvidia.uvm.modprobe.options"
 	if [ -n "${uvm_modprobe_options}" ]; then
 		echo "nvidia: modprobe nvidia-uvm ${uvm_modprobe_options}"
 		# shellcheck disable=SC2086 # if quoted this will brake modprobe's parsing of parameters
-		modprobe nvidia-uvm ${uvm_modprobe_options}
+		/sbin/modprobe nvidia-uvm ${uvm_modprobe_options}
 	fi
 
 	nvidia_process_kernel_params "$cmdline" "nvidia.uvm.persistence.mode"
@@ -220,118 +287,140 @@ nvidia_persistenced() {
 	#chown nobody:nogroup /var/run/nvidia-persistenced
 	#nvidia-persistenced -u nobody -g nogroup
 
-	if [ "${uvm_persistence_mode}" == "${UVM_PERISTENCE_MODE_ENABLED}" ]; then
+	if [ "${uvm_persistence_mode}" = "${UVM_PERISTENCE_MODE_ENABLED}" ]; then
 		echo "nvidia: enabling uvm persistence mode"
-		start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 
-		start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
-			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+		/sbin/start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid
+		/sbin/start-stop-daemon --start --exec /bin/nvidia-persistenced \
+			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid -- \
 			--uvm-persistence-mode
 		return 0
-	elif [ "${uvm_persistence_mode}" == "${UVM_PERISTENCE_MODE_DISABLED}" ]; then
+	elif [ "${uvm_persistence_mode}" = "${UVM_PERISTENCE_MODE_DISABLED}" ]; then
 		echo "nvidia: disabling uvm persistence mode"
-		start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 	
-		start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
-			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+		/sbin/start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid
+		/sbin/start-stop-daemon --start --exec /bin/nvidia-persistenced \
+			--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid -- \
 			--no-uvm-persistence-mode
 		return 0
 	fi
-	start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid 
-	start-stop-daemon --start --exec /usr/bin/nvidia-persistenced  \
-		--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid  -- \
+	/sbin/start-stop-daemon --stop --pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid
+	/sbin/start-stop-daemon --start --exec /bin/nvidia-persistenced \
+		--pidfile /var/run/nvidia-persistenced/nvidia-persistenced.pid -- \
 		--uvm-persistence-mode
 }
 
 nvidia_container_toolkit() {
-	nvidia-ctk system create-device-nodes --control-devices --load-kernel-modules
+	/bin/nvidia-ctk system create-device-nodes --control-devices --load-kernel-modules
 
 	nvidia_persistenced
 
-	nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml
-	nvidia-ctk cdi generate --mode=management --vendor=management.nvidia.com --output=/var/run/cdi/management.nvidia.yaml
+	/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml
+	#/bin/nvidia-ctk cdi generate --mode=management --vendor=management.nvidia.com --output=/var/run/cdi/management.nvidia.yaml
 }
 
-OBSOLETE_nvidia_verifier_hook() {
-	nvidia_attestation_mode=$1
-
-	# dynamic check for confidential compute
-	local conf_compute
-	conf_compute=$(nvidia-smi conf-compute -f | awk -F ' ' '{print $3}')
-
-	if [ "$conf_compute" == "ON" ]; then
-		nvidia-smi conf-compute -grs
-		# TODO: Until Remote Attestion Works
-		echo "TODO: NVIDIA GPU Overriding Remote Attestation"
-		nvidia-smi conf-compute -srs 1
-		# shellcheck source=/dev/null
-		source /gpu-attestation/bin/activate
-
-		if [ "${nvidia_attestation_mode}" == "remote" ]; then
-			echo "NVIDIA GPU Remote Attestation"
-
-			if python3 /gpu-attestation/bin/remote_attestation.py; then
-				echo "NVIDIA GPU Remote Attestation passed"
-				#nvidia-smi conf-compute -srs 1
-			else
-				echo "NVIDIA GPU Remote Attestation failed"
-				#nvidia-smi conf-compute -srs 0
-			fi
-		else
-			echo "NVIDIA GPU Local Attestation"
-			if python3 /gpu-attestation/bin/local_attestation.py; then
-				echo "NVIDIA GPU Local Attestation passed"
-				#nvidia-smi conf-compute -srs 1
-			else
-				echo "NVIDIA GPU Local Attestation failed"
-				#nvidia-smi conf-compute -srs 0
-			fi
-		fi
-	fi
+nvidia_fabric_manager() {
+	/usr/bin/nv-fabricmanager -c /usr/share/nvidia/nvswitch/fabricmanager.cfg
 }
 
-export gpu_device_ids=()
-export gpu_bdfs=()
+#export gpu_device_ids=()
+#export gpu_bdfs=()
+
+#nvidia_gpu_get_devices() {
+
+#	while IFS= read -r device_id; do
+#		gpu_device_ids+=("$device_id")
+#	done < <(lspci -d 10de: -n | awk -F ' ' '{print $3}' | cut -d: -f2)
+
+#	while IFS= read -r bdf; do
+#		gpu_bdfs+=("$bdf")
+#	done < <(lspci -d 10de: -n | awk -F ' ' '{print $1}')
+
+#	for bdf in "${!gpu_bdfs[@]}"; do
+#		echo "nvidia: GPU=${bdf} 0000:${gpu_bdfs[bdf]}"
+#	done
+#}
 
 nvidia_gpu_get_devices() {
+    # Iterate over PCI devices in /sys
+    for device_dir in /sys/bus/pci/devices/*; do
+        # Read the vendor ID
+        if [ -r "$device_dir/vendor" ]; then
+            read -r vendor < "$device_dir/vendor"
+        fi
 
-	while IFS= read -r device_id; do
-		gpu_device_ids+=("$device_id")
-	done < <(lspci -d 10de: -n | awk -F ' ' '{print $3}' | cut -d: -f2)
+        # Read the class ID
+        if [ -r "$device_dir/class" ]; then
+            read -r class < "$device_dir/class"
+        fi
 
-	while IFS= read -r bdf; do
-		gpu_bdfs+=("$bdf")
-	done < <(lspci -d 10de: -n | awk -F ' ' '{print $1}')
+        # Check if the device is an NVIDIA GPU (vendor ID 0x10de) and has the correct class ID
+        if [ "$vendor" = "0x10de" ] && { [ "$class" = "0x030000" ] || [ "$class" = "0x030200" ]; }; then
+            # Read the device ID
+            if [ -r "$device_dir/device" ]; then
+                read -r device < "$device_dir/device"
+            fi
 
-	for bdf in "${!gpu_bdfs[@]}"; do
-		echo "nvidia: GPU=${bdf} 0000:${gpu_bdfs[bdf]}"
-	done
+            gpu_device_ids="${gpu_device_ids} ${device}"
+
+            # Extract the BDF (bus, device, function) using parameter expansion
+            bdf=${device_dir##*/}
+            gpu_bdfs="${gpu_bdfs} ${bdf}"
+        fi
+    done
+
+    # Convert strings to arrays
+    set -- "$gpu_device_ids"
+    gpu_device_ids_list="$*"
+
+    set -- "$gpu_bdfs"
+    gpu_bdfs_list="$*"
+
+    # Iterate over both lists
+    index=1
+    for bdf in $gpu_bdfs_list; do
+        # Access the corresponding device_id
+        device_id=$(set -- "$gpu_device_ids_list"; eval echo \$$index)
+        echo "nvidia: GPU=${index} 0000:${bdf} device_id=${device_id}"
+        index=$((index + 1))
+    done
 }
 
 nvidia_reset_gpus() {
 	echo "nvidia: resetting ALL NVIDIA GPUs"
-	for bdf in "${gpu_bdfs[@]}"; do
+
+	# Convert space-separated string into a list for iteration
+	for bdf in $gpu_bdfs; do
 		echo "nvidia: resetting BDF $bdf"
 		if echo 1 >"/sys/bus/pci/devices/0000:${bdf}/reset"; then
 			echo "nvidia: reset BDF $bdf succeeded"
-			return 0
+		else
+			echo "nvidia: reset BDF $bdf failed"
+			return 1
 		fi
-		echo "nvidia: reset BDF $bdf failed"
-		return 1
 	done
+
+	return 0
 }
 
 nvidia_check_if_supported() {
+    if [ ! -e "${SUPPORTED_GPU_DEVIDS}" ]; then
+        echo "nvidia: ${SUPPORTED_GPU_DEVIDS} file not found, skipping check"
+        return
+    fi
 
-	if [ ! -e "${supported_gpu_devids}" ]; then
-		echo "nvidia: ${supported_gpu_devids} file not found, skipping check"
-		return
-	fi
-
-	for devid in "${gpu_device_ids[@]}"; do
-		if ! grep -q "${devid}" "${supported_gpu_devids}"; then
-			echo "GPU $devid is not supported, returning"
-			return ${ERR_NOT_SUPPORTED}
-		fi
-	done
+    for devid in $gpu_device_ids; do
+        found=0
+        while IFS= read -r line; do
+            if [ "$line" = "$devid" ]; then
+                found=1
+                break
+            fi
+        done < "${SUPPORTED_GPU_DEVIDS}"
+        
+        if [ $found -eq 0 ]; then
+            echo "GPU $devid is not supported, returning"
+            return ${ERR_NOT_SUPPORTED}
+        fi
+    done
 }
 
 nvidia_unload_reload_driver() {
@@ -346,89 +435,107 @@ nvidia_unload_reload_driver() {
 }
 
 nvidia_smi_lgc() {
+	value=$1
 
-	local value=$1
-	IFS=':' read -r -a parts <<<"$value"
-	echo "nvidia: locking gpu clocks on GPU${parts[0]} to ${parts[1]} MHz"
-	nvidia-smi -i "${parts[0]}" -lgc "${parts[1]}"
+	old_IFS=$IFS
+	IFS=':'
+	set -- "$value"
+	IFS=$old_IFS
+
+	gpu_index=$1
+	clock_value=$2
+
+	echo "nvidia: locking gpu clocks on GPU${gpu_index} to ${clock_value} MHz"
+	nvidia-smi -i "$gpu_index" -lgc "$clock_value"
 }
 
 nvidia_smi_lmcd() {
+	value=$1
 
-	local value=$1
-	IFS=':' read -r -a parts <<<"$value"
-	echo "nvidia: locking memory clocks on GPU${parts[0]} to ${parts[1]} MHz"
-	nvidia-smi -i "${parts[0]}" -lmcd "${parts[1]}"
+	old_IFS=$IFS
+	IFS=':'
+	set -- "$value"
+	IFS=$old_IFS
+
+	gpu_index=$1
+	clock_value=$2
+
+	echo "nvidia: locking memory clocks on GPU${gpu_index} to ${clock_value} MHz"
+	nvidia-smi -i "$gpu_index" -lmcd "$clock_value"
 	nvidia_unload_reload_driver
 }
 
 nvidia_smi_pl() {
+	value=$1
 
-	local value=$1
-	IFS=':' read -r -a parts <<<"$value"
-	echo "nvidia: setting power limit on GPU${parts[0]} to ${parts[1]} Watt"
-	nvidia-smi -i "${parts[0]}" -pl "${parts[1]}"
+	old_IFS=$IFS
+	IFS=':'
+	set -- "$value"
+	IFS=$old_IFS
+
+	gpu_index=$1
+	power_limit=$2
+
+	echo "nvidia: setting power limit on GPU${gpu_index} to ${power_limit} Watt"
+	nvidia-smi -i "$gpu_index" -pl "$power_limit"
 }
 
-export attestation_mode="remote"
 
-nvidia_attestation_mode() {
-	mode=$1
-	if [ "${mode}" = "remote" ]; then
-		attestation_mode=${mode}
-		return 0
-	fi
 
-	if [ "${mode}" = "local" ]; then
-		attestation_mode=${mode}
-		return 0
-	fi
+#OBSOLETE_nvidia_attestation_mode() {
+#	mode=$1
+#	if [ "${mode}" = "remote" ]; then
+#		attestation_mode=${mode}
+#		return 0
+#	fi
 
-	echo "nvidia: invalid attestation mode: ${mode}"
-	return 1
-}
-
-export uvm_modprobe_options=""
-export uvm_persistence_mode=""
+#	if [ "${mode}" = "local" ]; then
+#		attestation_mode=${mode}
+#		return 0
+#	fi
+#
+#	echo "nvidia: invalid attestation mode: ${mode}"
+#	return 1
+#}
 
 nvidia_process_kernel_params() {
 	kernel_params=$1
 	echo "nvidia: kernel_params: $kernel_params"
 
-	# Use readarray and xargs to correctly parse and handle parameters, including quoted strings
-	readarray -t parsed_params < <(xargs -n1 <<<"$kernel_params")
+	# Split kernel_params into individual parameters
+	set -- "$kernel_params"
 
 	# First pass: handle specific parameters based on which_param
 	which_param=$2
-	if [[ -n $which_param ]]; then
+	if [ -n "$which_param" ]; then
 		param_prefix="${which_param}="
-		for param in "${parsed_params[@]}"; do
-			if [[ $param == $param_prefix* ]]; then
-				value=${param#"${param_prefix}"}
-				value=${value#\"} # Remove leading quote if present
-				value=${value%\"} # Remove trailing quote if present
+		for param in "$@"; do
+			case $param in
+			${param_prefix}*)
+				value=${param#"$param_prefix"}
+				value=$(echo "$value" | sed 's/^"//;s/"$//')
 				echo "nvidia: value of kernel param ${which_param}: ${value}"
 
 				case $which_param in
 				nvidia.attestation.mode)
-					if ! nvidia_attestation_mode "${value}"; then
+					if ! nvidia_attestation_mode "$value"; then
 						return 1
 					fi
 					;;
 				nvidia.uvm.modprobe.options)
-					uvm_modprobe_options="${value}"
+					uvm_modprobe_options="$value"
 					;;
 				*)
 					# If it's a specific parameter we're looking for, do nothing more here
 					;;
 				esac
-			fi
+				;;
+			esac
 		done
 	else
 		# Second pass: handle all other parameters without specific filtering
-		for param in "${parsed_params[@]}"; do
+		for param in "$@"; do
 			case $param in
-
 			nvidia.smi.lgc=*)
 				value=${param#nvidia.smi.lgc=}
 				echo "nvidia: value of kernel param nvidia.smi.lgc: $value"
@@ -478,15 +585,15 @@ nvidia_process_kernel_params() {
 #[Install]
 #WantedBy=multi-user.target
 nvidia_dcgm_service() {
-	if [ $confidential_compute == "on" ]; then
+	if [ $confidential_compute = "on" ]; then
 		echo "nvidia: DCGM service (skipping CC=on)"
 		return
 	fi
 
 	echo "nvidia: DGCM service"
-	start-stop-daemon --start --exec /usr/bin/nv-hostengine  \
+	/sbin/start-stop-daemon --start --exec /bin/nv-hostengine \
 		--pidfile /var/run/nvhostengine.pid -- \
-		--service-account  nv-hostengine -f ${logging_directory}/nv-hostengine.log
+		--service-account nv-hostengine -f ${LOGGING_DIRECTORY}/nv-hostengine.log
 }
 # TLS and Basic Auth
 # Exporter supports TLS and basic auth using exporter-toolkit. To use TLS
@@ -513,7 +620,7 @@ nvidia_dcgm_service() {
 
 # In the VM we're already root so we don't need to setcap
 nvidia_dcgm_exporter() {
-	if [ $confidential_compute == "on" ]; then
+	if [ $confidential_compute = "on" ]; then
 		echo "nvidia: DCGM exporter (skipping CC=on)"
 		return
 	fi
@@ -524,9 +631,9 @@ nvidia_dcgm_exporter() {
 	svc="dcgm-exporter"
 
 	echo "nvidia: starting $svc service"
-	start-stop-daemon --start --exec /usr/bin/${svc} --background   \
-		--make-pidfile --pidfile /var/run/${svc}.pid 
+	/sbin/start-stop-daemon --start --exec /bin/${svc} --background \
+		--make-pidfile --pidfile /var/run/${svc}.pid
 }
 
 # The very first step so we can capture all the logs
-mkdir -p "${logging_directory}"
+#mkdir -p "${logging_directory}"

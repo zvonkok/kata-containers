@@ -878,6 +878,8 @@ setup_nvidia_gpu_rootfs()
 	# TODO REMOVE THIS SECTION END
 
 	popd  >> /dev/null
+
+	
 }
 
 parse_arguments()

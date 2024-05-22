@@ -115,7 +115,8 @@ cleanup_rootfs()
 
 	apt purge -yqq jq make gcc wget libc6-dev git xz-utils curl gpg \
 		python3-pip software-properties-common ca-certificates  \
-		linux-libc-dev nuitka python3-minimal
+		linux-libc-dev nuitka python3-minimal cuda-keyring 
+		#perl-base  debconf adduser lsb-base passwd readline-common gcc-12-base
 		
 
 	if [ -n "${driver_version}" ]; then
@@ -135,30 +136,26 @@ cleanup_rootfs()
 		depmod -a
 	done
 
-	dpkg --purge apt
+	#dpkg --purge apt
 
 	rm -rf /etc/apt/sources.list* /var/lib/apt /var/log/apt /var/cache/debconf
 	rm -f /usr/bin/nvidia-ngx-updater /usr/bin/nvidia-container-runtime
 	rm -f /var/log/{nvidia-installer.log,dpkg.log,alternatives.log}
 
+	# Define the directory to exclude
+	exclude_dir="/usr/share/nvidia"
+	# Use find to locate all files and directories except the excluded one
+	find /usr/share -mindepth 1 -path "$exclude_dir" -prune -o -exec rm -rf {} +
 
-	if [ -e /usr/share/nvidia ]; then 
-		mv /usr/share/nvidia /root/usr_share_nvidia
-	fi 
-
-	rm -rf /usr/share/*
-
-	if [ -e /root/usr_share_nvidia ]; then 
-		mv /root/usr_share_nvidia /usr/share/nvidia
-	fi 
 
 
 	# Clear and regenerate the ld cache
 	rm -f /etc/ld.so.cache
 	ldconfig
 
-	cp /nvidia_init /init
-	mv /lib/modules.save_from_purge /lib/modules
+	ln -sf /nvidia_init /init
+
+	tar xvf /lib/modules.save_from_purge.tar.xz -C /
 
 }
 install_nvidia_ctk() 
@@ -263,7 +260,7 @@ build_nvidia_drivers()
 		make -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build clean > /dev/null
 	done
 	# Save the modules for later so that a linux-image purge does not remove it
-	mv /lib/modules /lib/modules.save_from_purge
+	tar cvfJ /lib/modules.save_from_purge.tar.xz /lib/modules
 
 	popd >> /dev/null
 }
@@ -415,7 +412,7 @@ get_supported_gpus_from_distro_drivers()
 
 export_driver_version() 
 { 
-       for modules_version in /lib/modules.save_from_purge/*; do
+       for modules_version in /lib/modules/*; do
                modinfo "${modules_version}"/kernel/drivers/video/nvidia.ko | grep ^version | awk '{ print $2 }' > /nvidia_driver_version
                break
        done

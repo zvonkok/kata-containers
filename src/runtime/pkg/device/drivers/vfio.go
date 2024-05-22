@@ -48,26 +48,6 @@ func NewVFIODevice(devInfo *config.DeviceInfo) *VFIODevice {
 	}
 }
 
-// getOrUpdateVFIOPortAssignment returns the port assignment for a VFIO device
-// If the VFIO device is already assigned return the port, otherwise
-// assign a new port and return that.
-func getOrUpdateVFIOPortAssignment(existingVFIO []config.VFIODev, incoming config.VFIODev) string {
-	for busIndex, existing := range existingVFIO {
-		if existing.BDF == incoming.BDF {
-			// If it is the very same device update the structure
-			// with the incoming device info and return the bus number
-			config.PCIeDevicesPerPort[incoming.Port][busIndex] = incoming
-			return fmt.Sprintf("%s%d", config.PCIePortPrefixMapping[incoming.Port], busIndex)
-		}
-	}
-	busIndex := len(config.PCIeDevicesPerPort[incoming.Port])
-	// We need to keep track the number of devices per port to deduce
-	// the corectu bus number, additionally we can use the VFIO device
-	// info to act upon different Vendor IDs and Device IDs.
-	config.PCIeDevicesPerPort[incoming.Port] = append(config.PCIeDevicesPerPort[incoming.Port], incoming)
-	return fmt.Sprintf("%s%d", config.PCIePortPrefixMapping[incoming.Port], busIndex)
-}
-
 // Attach is standard interface of api.Device, it's used to add device to some
 // DeviceReceiver
 func (device *VFIODevice) Attach(ctx context.Context, devReceiver api.DeviceReceiver) (retErr error) {
@@ -96,17 +76,13 @@ func (device *VFIODevice) Attach(ctx context.Context, devReceiver api.DeviceRece
 		if vfio.Port == "" {
 			return fmt.Errorf("cold_plug_vfio= or hot_plug_vfio= port is not set for device %s (BridgePort | RootPort | SwitchPort)", vfio.BDF)
 		}
-
 		if vfio.IsPCIe {
-			// If the device is already assigned to a port ignore it,
-			// otherwise a container restart will increase the bus
-			// number until we're out of range and fail.
-			deviceLogger().Infof("### PCIeDevicesPerPort %+v", config.PCIeDevicesPerPort)
-			deviceLogger().Infof("### incoming VFIO %+v", vfio)
-			//busIndex := len(config.PCIeDevicesPerPort[vfio.Port])
-			//vfio.Bus = fmt.Sprintf("%s%d", config.PCIePortPrefixMapping[vfio.Port], busIndex)
-			existingVFIO := config.PCIeDevicesPerPort[vfio.Port]
-			vfio.Bus = getOrUpdateVFIOPortAssignment(existingVFIO, *vfio)
+			busIndex := len(config.PCIeDevicesPerPort[vfio.Port])
+			vfio.Bus = fmt.Sprintf("%s%d", config.PCIePortPrefixMapping[vfio.Port], busIndex)
+			// We need to keep track the number of devices per port to deduce
+			// the corectu bus number, additionally we can use the VFIO device
+			// info to act upon different Vendor IDs and Device IDs.
+			config.PCIeDevicesPerPort[vfio.Port] = append(config.PCIeDevicesPerPort[vfio.Port], *vfio)
 		}
 		deviceLogger().Infof("#### VFIO Device: %v, Port: %v, Bus: %v, BDF: %v, SysfsDev: %v, Type: %v, IsPCIe: %v, VendorID: %v, DeviceID: %v", vfio.ID, vfio.Port, vfio.Bus, vfio.BDF, vfio.SysfsDev, vfio.Type, vfio.IsPCIe, vfio.VendorID, vfio.DeviceID)
 	}
@@ -164,6 +140,21 @@ func (device *VFIODevice) Detach(ctx context.Context, devReceiver api.DeviceRece
 	if err := devReceiver.HotplugRemoveDevice(ctx, device, config.DeviceVFIO); err != nil {
 		deviceLogger().WithError(err).Error("Failed to remove device")
 		return err
+	}
+
+	for _, vfio := range device.VfioDevs {
+		if vfio.IsPCIe {
+			for ix, val := range config.PCIeDevicesPerPort[vfio.Port] {
+				if val.HostPath == vfio.HostPath {
+					config.PCIeDevicesPerPort[vfio.Port] = append(config.PCIeDevicesPerPort[vfio.Port][:ix], config.PCIeDevicesPerPort[vfio.Port][ix+1:]...)
+					deviceLogger().WithFields(logrus.Fields{
+						"device-group": device.DeviceInfo.HostPath,
+						"device-type":  "vfio-passthrough",
+					}).Info("detach: vinfo deleted")
+					break
+				}
+			}
+		}
 	}
 
 	deviceLogger().WithFields(logrus.Fields{

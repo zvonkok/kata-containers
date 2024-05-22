@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/dash -x
 # shellcheck source=/dev/null
 . /nvidia_init_functions
 
@@ -9,29 +9,38 @@ mount_setup
 assert_ok nvidia_query_cpu_vendor cpu_vendor
 assert_ok nvidia_gpu_get_devices 
 assert_ok nvidia_gpu_query_cc_mode confidential_compute 
-
+assert_ok nvidia_chrony_setup
 # If the GPU is not supported do not do any GPU handling
 #assert_ok nvidia_check_if_supported 
 if assert_ok nvidia_check_if_supported; then 
         # Only if we're cold-plugging we would detect GPUs in this phase, 
         # skip any GPU related setup if we don't have any GPUs
+        # 
+        # COLD-PLUGGING: GPUs are already present in the system when the sandbox starts
         if [ -n "${gpu_device_ids}" ]; then
                 #assert_ok nvidia_reset_gpus
                 #assert_ok nvidia_persistenced
                 assert_ok nvidia_container_toolkit
                 assert_ok nvidia_process_kernel_params 
+                assert_ok nvidia_fabric_manager
                 # The next ones will be only run if CC != "on"
                 assert_ok nvidia_dcgm_service
                 assert_ok nvidia_dcgm_exporter
         # If we do not have any GPUs at this stage we are hot-plugging
         # setup udev to handle initialization of GPUs
-        else 
+        #
+        # HOT-PLUGGING: GPUs are added to the system after the sandbox has started
+        else    
                 assert_ok nvidia_udev_setup
         fi
 fi 
 
 # TODO setting the GPU in ready mode till KBS has GPU suport
 assert_ok nvidia_gpu_set_ready
+assert_ok nvidia_rootfs_readonly
+
+
+
 
 # Setting AGENT_INIT to yes will make the agent the init process
 exec /sbin/init
