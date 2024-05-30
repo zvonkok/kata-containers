@@ -687,13 +687,13 @@ main() {
 
 	case "${subcmd}" in
 		build)
-			#build_kernel "${kernel_path}"
+			build_kernel "${kernel_path}"
 			;;
 		build-headers)
-			#build_kernel_headers "${kernel_path}"
+			build_kernel_headers "${kernel_path}"
 			;;
 		install)
-			#install_kata "${kernel_path}"
+			install_kata "${kernel_path}"
 			;;
 		setup)
 			setup_kernel "${kernel_path}"
