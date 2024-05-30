@@ -8,6 +8,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+set -x
+
 readonly script_name="$(basename "${BASH_SOURCE[0]}")"
 readonly script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -685,13 +687,13 @@ main() {
 
 	case "${subcmd}" in
 		build)
-			build_kernel "${kernel_path}"
+			#build_kernel "${kernel_path}"
 			;;
 		build-headers)
-			build_kernel_headers "${kernel_path}"
+			#build_kernel_headers "${kernel_path}"
 			;;
 		install)
-			install_kata "${kernel_path}"
+			#install_kata "${kernel_path}"
 			;;
 		setup)
 			setup_kernel "${kernel_path}"
