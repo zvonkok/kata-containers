@@ -21,7 +21,6 @@ clone_tests_repo()
 {
 	if [ -d "$tests_repo_dir" ]; then
 		[ -n "${CI:-}" ] && return
-
 		pushd "${tests_repo_dir}"
 		git checkout "${branch}"
 		git pull
