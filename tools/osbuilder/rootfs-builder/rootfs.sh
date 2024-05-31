@@ -435,7 +435,7 @@ build_rootfs_distro()
 		if [ -n "${IMAGE_REGISTRY}" ]; then
 			engine_build_args+=" --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY}"
 		fi
-		export DOCKER_BUILDKIT=1
+
 		# setup to install rust here
 		generate_dockerfile "${distro_config_dir}"
 		"$container_engine" build  \
