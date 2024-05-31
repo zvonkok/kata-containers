@@ -1,5 +1,0 @@
-bases:
-- ../../../base
-
-components:
-- ../../../components/helm 
