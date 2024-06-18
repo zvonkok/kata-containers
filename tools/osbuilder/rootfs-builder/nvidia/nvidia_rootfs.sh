@@ -211,7 +211,8 @@ chisseled_dcgm()
 	tar xvf "${BUILD_DIR}"/kata-static-nvidia-dcgm-exporter.tar.zst -C .
 }
 
-chisseled_gpu()
+# copute always includes utility per default
+chisseled_compute()
 {
 	echo "nvidia: chisseling GPU"
 
@@ -330,9 +331,9 @@ setup_nvidia_gpu_rootfs_stage_two()
 	IFS=',' read -r -a stack_components <<< "$NVIDIA_GPU_STACK"
 
 	for component in "${stack_components[@]}"; do
-    		if [ "$component" = "gpu" ]; then
-        		echo "nvidia: processing GPU component"
-        		chisseled_gpu
+    		if [ "$component" = "compute" ]; then
+        		echo "nvidia: processing \"compute\" component"
+        		chisseled_compute
     		elif [ "$component" = "dcgm" ]; then
         		echo "nvidia: processing DCGM component"
         		chisseled_dcgm
