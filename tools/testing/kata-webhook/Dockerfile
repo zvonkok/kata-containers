@@ -8,7 +8,7 @@ WORKDIR /go/src/kata-pod-annotate
 COPY . ./
 RUN CGO_ENABLED=0 go build -o /go/bin/kata-pod-annotate
 
-FROM alpine:3.19
+FROM alpine:3
 COPY --from=builder /go/bin/kata-pod-annotate /kata-pod-annotate
 ENTRYPOINT ["/kata-pod-annotate"]
 
