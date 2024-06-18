@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM alpine:3.19
+FROM alpine:3
 
 LABEL maintainers="Kata Containers Authors"
 LABEL description="Kata DirectVolume Driver"
