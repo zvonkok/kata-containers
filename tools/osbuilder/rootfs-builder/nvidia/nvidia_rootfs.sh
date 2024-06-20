@@ -14,9 +14,10 @@ readonly SCRIPT_DIR="${script_dir}/nvidia"
 # This will control how much output the inird/image will produce
 DEBUG=""
 
-setup_nvidia-kdev()
+setup_nvidia-nvrc()
 {
-	local TARGET="nvidia-kdev"
+	local TARGET="nvidia-nvrc"
+	local PROJECT="nvrc"
 	local TARGET_BUILD_DIR="${BUILD_DIR}/${TARGET}/builddir"
 	local TARGET_DEST_DIR="${BUILD_DIR}/${TARGET}/destdir"
 	local TARBALL="${BUILD_DIR}/kata-static-${TARGET}.tar.zst"
@@ -26,13 +27,13 @@ setup_nvidia-kdev()
 
 	pushd "${TARGET_BUILD_DIR}" > /dev/null || exit 1
 
-	rm -rf kdev
-	git clone https://github.com/zvonkok/kdev.git
+	rm -rf "${PROJECT}"
+	git clone https://github.com/zvonkok/${PROJECT}.git
 
-	pushd kdev > /dev/null || exit 1
+	pushd "${PROJECT}" > /dev/null || exit 1
 
 	cargo build --release --target=x86_64-unknown-linux-musl
-	cp target/x86_64-unknown-linux-musl/release/kdev ../../destdir/bin/.
+	cp target/x86_64-unknown-linux-musl/release/NVRC ../../destdir/bin/.
 
 	popd > /dev/null || exit 1
 
@@ -113,7 +114,7 @@ setup_nvidia_gpu_rootfs_stage_one()
 
 	info "nvidia: Setup GPU rootfs type=$rootfs_type"
 
-	for component in "nvidia-gpu-admin-tools" "nvidia-dcgm-exporter" "nvidia-kdev"; do
+	for component in "nvidia-gpu-admin-tools" "nvidia-dcgm-exporter" "nvidia-nvrc"; do
 		if [ ! -e "${BUILD_DIR}/kata-static-${component}.tar.zst" ]; then
 			setup_${component}
 		fi
@@ -234,7 +235,7 @@ chisseled_compute()
 	libdir="lib64"
 	cp -a "${stage_one}"/${libdir}/ld-linux-x86-64.so.* ${libdir}/.
 
-	tar xvf "${BUILD_DIR}"/kata-static-nvidia-kdev.tar.zst -C .
+	tar xvf "${BUILD_DIR}"/kata-static-nvidia-nvrc.tar.zst -C .
 
 	libdir="lib/x86_64-linux-gnu"
 	cp -a "${stage_one}"/${libdir}/libnvidia-ml.so.*    ${libdir}/.
@@ -265,13 +266,7 @@ chisseled_init()
 
 	ln -sf ../run var/run
 
-	if [ -z ${DEBUG} ]; then
-		# Make binary (U)ntraceable, (H)ardening : extra security protection
-		shc -U -H -f "${SCRIPT_DIR}/nvidia_init" -o ./init
-	else
-    		cp -a "${SCRIPT_DIR}/nvidia_init" ./init
-	fi
-
+	cp -a "${stage_one}"/init .
 	cp -a "${stage_one}"/sbin/init sbin/.
 	cp -a "${stage_one}"/etc/kata-opa etc/.
 	cp -a "${stage_one}"/etc/resolv.conf etc/.

@@ -422,7 +422,8 @@ install_initrd_mariner() {
 #
 # latest | lts -> use the latest and greatest driver or lts release
 # debug        -> enable debugging support
-# gpu          -> enable the default GPU stack
+# compute      -> enable the compute GPU stack, includes utility
+# graphics     -> enable the graphics GPU stack, includes compute
 # dcgm         -> enable the DCGM stack + DGCM exporter
 # nvswitch     -> enable DGX like systems
 # gpudirect    -> enable use-cases like GPUDirect RDMA, GPUDirect GDS
@@ -436,7 +437,7 @@ install_image_nvidia_gpu() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
 	export EXTRA_PKGS="apt"
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,gpu"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_image "nvidia-gpu"
 }
 
@@ -445,7 +446,7 @@ install_initrd_nvidia_gpu() {
 	export AGENT_POLICY="yes"
 	export AGENT_INIT="yes"
 	export EXTRA_PKGS="apt"
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,debug,gpu"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_initrd "nvidia-gpu"
 }
 
@@ -455,7 +456,7 @@ install_image_nvidia_gpu_confidential() {
 	export AGENT_INIT="yes"
 	export EXTRA_PKGS="apt"
 	export MEASURED_ROOTFS=yes
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,gpu"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_image "nvidia-gpu-confidential"
 }
 
@@ -465,7 +466,7 @@ install_initrd_nvidia_gpu_confidential() {
 	export AGENT_INIT="yes"
 	export EXTRA_PKGS="apt"
 	export MEASURED_ROOTFS=yes
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,gpu"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"latest,compute"}
 	install_initrd "nvidia-gpu-confidential"
 }
 
