@@ -22,6 +22,7 @@ readonly static_build_dir="${repo_root_dir}/tools/packaging/static-build"
 readonly version_file="${repo_root_dir}/VERSION"
 readonly versions_yaml="${repo_root_dir}/versions.yaml"
 
+readonly busybox_builder="${static_build_dir}/busybox/build.sh"
 readonly agent_builder="${static_build_dir}/agent/build.sh"
 readonly busybox_builder="${static_build_dir}/busybox/build.sh"
 readonly coco_guest_components_builder="${static_build_dir}/coco-guest-components/build.sh"
@@ -824,9 +825,8 @@ install_ovmf_sev() {
 	install_ovmf "sev" "edk2-sev.tar.gz"
 }
 
-
 install_busybox() {
-	latest_artefact="$(get_from_kata_deps "externals.busybox.version")"
+	latest_artefact="$(get_from_kata_deps ".externals.busybox.version")"
 	latest_builder_image="$(get_busybox_image_name)"
 
 	install_cached_tarball_component \
@@ -840,7 +840,6 @@ install_busybox() {
 	info "build static busybox"
 	DESTDIR=${destdir} BUSYBOX_CONF_FILE=${BUSYBOX_CONF_FILE:?} "${busybox_builder}"
 }
-
 
 install_agent() {
 	latest_artefact="$(git log -1 --abbrev=9 --pretty=format:"%h" ${repo_root_dir}/src/agent)"
@@ -1056,6 +1055,8 @@ handle_build() {
 	agent) install_agent ;;
 
 	agent-ctl) install_agent_ctl ;;
+
+	busybox) install_busybox ;;
 
 	boot-image-se) install_se_image ;;
 

@@ -34,11 +34,12 @@ docker pull "${container_image}" || \
 	 push_to_registry "${container_image}")
 
 docker run --rm -i -v "${repo_root_dir:?}:${repo_root_dir}" \
-	--env DESTDIR="${DESTDIR}" \
-	--env BUSYBOX_VERSION="${BUSYBOX_VERSION}" \
-	--env BUSYBOX_URL="${BUSYBOX_URL}" \
-	--env BUSYBOX_CONF_FILE="${BUSYBOX_CONF_FILE}" \
-	--env BUSYBOX_CONF_DIR="${script_dir}" \
+	--env DESTDIR="${DESTDIR:?}" \
+	--env BUSYBOX_VERSION="${BUSYBOX_VERSION:?}" \
+	--env BUSYBOX_URL="${BUSYBOX_URL:?}" \
+	--env BUSYBOX_CONF_FILE="${BUSYBOX_CONF_FILE:?}" \
+	--env BUSYBOX_CONF_DIR="${script_dir:?}" \
+	--env HOME="/tmp" \
 	--user "$(id -u):$(id -g)" \
 	-w "${repo_root_dir}/build/busybox/builddir" \
 	"${container_image}" \
