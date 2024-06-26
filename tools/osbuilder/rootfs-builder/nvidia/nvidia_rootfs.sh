@@ -235,7 +235,7 @@ chisseled_compute()
 	libdir="lib64"
 	cp -a "${stage_one}"/${libdir}/ld-linux-x86-64.so.* ${libdir}/.
 
-	tar xvf "${BUILD_DIR}"/kata-static-nvidia-nvrc.tar.zst -C .
+
 
 	libdir="lib/x86_64-linux-gnu"
 	cp -a "${stage_one}"/${libdir}/libnvidia-ml.so.*    ${libdir}/.
@@ -266,21 +266,22 @@ chisseled_init()
 
 	ln -sf ../run var/run
 
-	cp -a "${stage_one}"/init .
-	cp -a "${stage_one}"/sbin/init sbin/.
-	cp -a "${stage_one}"/etc/kata-opa etc/.
-	cp -a "${stage_one}"/etc/resolv.conf etc/.
+	tar xvf "${BUILD_DIR}"/kata-static-nvidia-nvrc.tar.zst -C .
+
+	ln -sf  ../bin/NVRC init
+
+	cp -a "${stage_one}"/sbin/init            sbin/.
+	cp -a "${stage_one}"/etc/kata-opa         etc/.
+	cp -a "${stage_one}"/etc/resolv.conf      etc/.
 	cp -a "${stage_one}"/supported-gpu.devids .
 
-	cp -a "${stage_one}"/lib/firmware/nvidia lib/firmware/.
-	cp -a "${stage_one}"/sbin/ldconfig.real sbin/ldconfig
-
+	cp -a "${stage_one}"/lib/firmware/nvidia  lib/firmware/.
+	cp -a "${stage_one}"/sbin/ldconfig.real   sbin/ldconfig
 }
 
 compress_rootfs()
 {
 	echo "nvidia: compressing rootfs"
-
 
 	# For some unobvious reason libc has executable bit set
 	# clean this up otherwise the find -executable will not work correctly
