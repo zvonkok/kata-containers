@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+[ -z "${DEBUG}" ] || set -x
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -35,3 +37,6 @@ docker run --rm -i -v "${repo_root_dir}:${repo_root_dir}" \
 	--user "$(id -u)":"$(id -g)" \
 	"${container_image}" \
 	bash -c "${agent_builder}"
+
+
+

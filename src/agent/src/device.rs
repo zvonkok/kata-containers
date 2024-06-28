@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+use cdi::annotations::parse_annotations;
+use cdi::default_cache::inject_devices;
 use nix::sys::stat;
+use oci_spec::runtime::Spec as oci_spec;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -939,6 +942,79 @@ async fn vfio_ap_device_handler(
 #[cfg(not(target_arch = "s390x"))]
 async fn vfio_ap_device_handler(_: &Device, _: &Arc<Mutex<Sandbox>>) -> Result<SpecUpdate> {
     Err(anyhow!("AP is only supported on s390x"))
+}
+
+use tokio::time::{self, Duration};
+
+#[instrument]
+pub async fn handle_cdi_devices(
+    devices: &[Device],
+    spec: &mut Spec,
+    sandbox: &Arc<Mutex<Sandbox>>,
+) -> Result<()> {
+    // If we have a sandbox container we do not inject any devices, the
+    // CDI devices are used to create the proper PCIe topology and in case
+    // of cold-plug to direct-attach them to the VM.
+    if "pod_sandbox" == spec.annotations["io.katacontainers.pkg.oci.container_type"] {
+        return Ok(());
+    }
+
+    let (_keys, devices) = parse_annotations(&spec.annotations)?;
+
+    if devices.is_empty() {
+        info!(sl(), "### no devices to inject");
+        return Ok(());
+    }
+
+    let raw_oci_config = Path::new("/tmp/raw-oci-config.json");
+    let cdi_oci_config = Path::new("/tmp/cdi-oci-config.json");
+
+    spec.save(raw_oci_config.to_str().unwrap())?;
+
+    let mut raw_spec = oci_spec::load(raw_oci_config.to_str().unwrap())?;
+
+    let mut timeout = 0;
+    loop {
+        let unresolved = inject_devices(&mut raw_spec, devices.clone());
+        // check for error
+        match unresolved {
+            Ok(_) => {
+                info!(sl(), "### all devices injected");
+                break;
+            }
+            Err(e) => {
+                info!(sl(), "### error injecting devices: {:?}", e);
+            }
+        }
+
+        time::sleep(Duration::from_millis(1000)).await;
+        if timeout > 100 {
+            break;
+        }
+        timeout += 1;
+    }
+
+    raw_spec.save(cdi_oci_config.to_str().unwrap())?;
+
+    let cdi = oci::Spec::load(cdi_oci_config.to_str().unwrap());
+    match cdi {
+        Ok(cdi) => {
+            *spec = cdi;
+        }
+        Err(e) => {
+            error!(sl(), "failed to load cdi oci spec: {:?}", e);
+        }
+    }
+
+    if raw_oci_config.exists() {
+        fs::remove_file(raw_oci_config)?;
+    }
+
+    if cdi_oci_config.exists() {
+        fs::remove_file(cdi_oci_config)?;
+    }
+
+    Ok(())
 }
 
 #[instrument]
