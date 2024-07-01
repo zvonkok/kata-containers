@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM alpine:3.18
+FROM alpine:3
 ARG GO_TOOLCHAIN
 ARG RUST_TOOLCHAIN
 
