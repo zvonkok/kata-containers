@@ -19,7 +19,18 @@ endif
 
 ifeq ($(ARCH), x86_64)
 BASE_TARBALLS = serial-targets \
+	firecracker-tarball \
+	kernel-confidential-tarball \
+	kernel-dragonball-experimental-tarball \
+	kernel-nvidia-gpu-tarball \
+	kernel-nvidia-gpu-confidential-tarball \
+	kernel-tarball \
+	nydus-tarball \
+	ovmf-sev-tarball \
+	ovmf-tarball \
+	qemu-snp-experimental-tarball \
 	qemu-tarball \
+	stratovirt-tarball \
 	shim-v2-tarball \
 	virtiofsd-tarball
 BASE_SERIAL_TARBALLS = rootfs-image-tarball \
@@ -60,9 +71,6 @@ serial-targets:
 
 %-tarball-build:
 	$(call BUILD,$*)
-
-busybox-tarball:
-	${MAKE} $@-build
 
 agent-tarball: copy-scripts-for-the-agent-build
 	${MAKE} $@-build

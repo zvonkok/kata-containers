@@ -1150,7 +1150,6 @@ handle_build() {
 	fi
 	tar tvf "${final_tarball_path}"
 
-
 	case ${build_target} in
 		kernel-nvidia-gpu*)
 			local kernel_headers_final_tarball_path="${workdir}/kata-static-${build_target}-headers.tar.xz"
