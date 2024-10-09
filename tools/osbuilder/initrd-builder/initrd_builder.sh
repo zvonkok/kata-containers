@@ -6,7 +6,6 @@
 
 [ -z "${DEBUG}" ] || set -x
 
-set -x
 set -o errexit
 # set -o nounset
 set -o pipefail
