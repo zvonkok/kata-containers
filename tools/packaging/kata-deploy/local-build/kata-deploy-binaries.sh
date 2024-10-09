@@ -478,8 +478,6 @@ install_initrd_nvidia_gpu_confidential() {
 }
 
 
-
-
 install_se_image() {
 	info "Create IBM SE image configured with AA_KBC=${AA_KBC}"
 	"${se_image_builder}" --destdir="${destdir}"
@@ -1121,6 +1119,8 @@ handle_build() {
 
 	rootfs-initrd) install_initrd ;;
 
+	rootfs-initrd-confidential) install_initrd_confidential ;;
+
 	rootfs-initrd-mariner) install_initrd_mariner ;;
 
 	rootfs-nvidia-gpu-image) install_image_nvidia_gpu ;;
@@ -1150,7 +1150,6 @@ handle_build() {
 	fi
 	tar tvf "${final_tarball_path}"
 
-	echo "BUILD TARGET: ${build_target}"
 
 	case ${build_target} in
 		kernel-nvidia-gpu*)
@@ -1283,7 +1282,6 @@ main() {
 		kata-manager
 		kernel
 		kernel-experimental
-		kernel-nvidia-gpu
 		nydus
 		pause-image
 		qemu
@@ -1291,7 +1289,6 @@ main() {
 		rootfs-image
 		rootfs-image-confidential
 		rootfs-initrd
-		rootfs-nvidia-gpu-initrd
 		rootfs-initrd-confidential
 		rootfs-initrd-mariner
 		runk
