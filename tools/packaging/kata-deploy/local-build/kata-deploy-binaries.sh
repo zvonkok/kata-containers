@@ -437,7 +437,7 @@ install_initrd_mariner() {
 #
 # The full stack can be enabled by setting all the options like:
 #
-# NVIDIA_GPU_STACK="latest,gpu,dcgm,nvswitch,gpudirect"
+# NVIDIA_GPU_STACK="latest,compute,dcgm,nvswitch,gpudirect"
 #
 # Instal NVIDIA GPU image
 install_image_nvidia_gpu() {
@@ -1073,8 +1073,6 @@ handle_build() {
 
 	boot-image-se) install_se_image ;;
 
-	busybox) install_busybox ;;
-
 	coco-guest-components) install_coco_guest_components ;;
 
 	cloud-hypervisor) install_clh ;;
@@ -1094,15 +1092,12 @@ handle_build() {
 	kernel-confidential) install_kernel_confidential ;;
 
 	kernel-dragonball-experimental) install_kernel_dragonball_experimental ;;
+
 	kernel-nvidia-gpu-dragonball-experimental) install_kernel_nvidia_gpu_dragonball_experimental ;;
 
 	kernel-nvidia-gpu) install_kernel_nvidia_gpu ;;
 
 	kernel-nvidia-gpu-confidential) install_kernel_nvidia_gpu_confidential ;;
-
-	kernel-tdx-experimental) install_kernel_tdx_experimental ;;
-
-	kernel-sev) install_kernel_sev ;;
 
 	nydus) install_nydus ;;
 
@@ -1123,8 +1118,6 @@ handle_build() {
 	rootfs-image-confidential) install_image_confidential ;;
 
 	rootfs-image-mariner) install_image_mariner ;;
-
-	rootfs-image-tdx) install_image_tdx ;;
 
 	rootfs-initrd) install_initrd ;;
 
