@@ -18,8 +18,8 @@ install_nvidia_ctk()
 	echo "chroot: Installing NVIDIA GPU container runtime"
 	apt list  nvidia-container-toolkit-base -a
 	# Base  gives a nvidia-ctk and the nvidia-container-runtime
-	eval "${APT_INSTALL}" nvidia-container-toolkit-base=1.15.0~rc.4-1
-	#eval "${APT_INSTALL}" nvidia-container-toolkit-base
+	#eval "${APT_INSTALL}" nvidia-container-toolkit-base=1.15.0~rc.4-1
+	eval "${APT_INSTALL}" nvidia-container-toolkit-base
 }
 
 install_nvidia_fabricmanager()
@@ -114,6 +114,15 @@ install_userspace_components()
 
 prepare_run_file_drivers()
 {
+	if [ "${driver_version}" == "latest" ]; then
+		driver_version=""
+		echo "chroot: Resetting driver version not supported with run-file"
+	elif [ "${driver_version}" == "lts" ]; then
+		driver_version=""
+		echo "chroot: Resetting driver version not supported with run-file"
+	fi
+
+
 	echo "chroot: Prepare NVIDIA run file drivers"
 	pushd / >> /dev/null
 	chmod +x "${run_file_name}"
@@ -175,7 +184,7 @@ prepare_nvidia_drivers()
 install_build_dependencies()
 {
 	echo "chroot: Install NVIDIA drivers build dependencies"
-	eval "${APT_INSTALL}" make gcc kmod libvulkan1 pciutils jq zstd linuxptp
+	eval "${APT_INSTALL}" make gcc gawk kmod libvulkan1 pciutils jq zstd linuxptp
 }
 
 setup_apt_repositories()
@@ -192,27 +201,30 @@ setup_apt_repositories()
 	rm -f /etc/apt/sources.list.d/*
 
 	if [ "${arch_target}" == "aarch64" ]; then
-		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/jammy.list
-			deb http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse
-			deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse
-			deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse
+		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/noble.list
+			deb http://ports.ubuntu.com/ubuntu-ports/ noble main restricted universe multiverse
+			deb http://ports.ubuntu.com/ubuntu-ports/ noble-updates main restricted universe multiverse
+ 			deb http://ports.ubuntu.com/ubuntu-ports/ noble-security main restricted universe multiverse
+ 			deb http://ports.ubuntu.com/ubuntu-ports/ noble-backports main restricted universe multiverse
 		CHROOT_EOF
 	else
-		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/jammy.list
-			deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
-			deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
-			deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+		cat <<-'CHROOT_EOF' > /etc/apt/sources.list.d/noble.list
+			deb http://us.archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+			deb http://us.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+			deb http://us.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+			deb http://us.archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
 		CHROOT_EOF
 	fi
 
 	apt update
+
 	eval "${APT_INSTALL}" curl gpg ca-certificates
-	# shellcheck source=/dev/null
-	distribution=$(. /etc/os-release;echo "${ID}${VERSION_ID}")
+
 	curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-		curl -s -L https://nvidia.github.io/libnvidia-container/experimental/"${distribution}"/libnvidia-container.list | \
-        	sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-         	tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  	curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
+    		sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
+    		tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
 	apt update
 }
 
@@ -267,7 +279,7 @@ cleanup_rootfs()
 {
 	echo "chroot: Cleanup NVIDIA GPU rootfs"
 
-	apt-mark hold libstdc++6 libzstd1 libgnutls30 pciutils
+	apt-mark hold libstdc++6 libzstd1 libgnutls30t64 pciutils
 
 	if [ -n "${driver_version}" ]; then
 		apt-mark hold libnvidia-cfg1-"${driver_version}"-server \

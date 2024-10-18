@@ -29,7 +29,7 @@ setup_nvidia-nvrc()
 	pushd "${TARGET_BUILD_DIR}" > /dev/null || exit 1
 
 	rm -rf "${PROJECT}"
-	git clone https://github.com/NVIDIA/${PROJECT}.git
+	git clone https://github.com/zvonkok/${PROJECT}.git
 
 	pushd "${PROJECT}" > /dev/null || exit 1
 
@@ -61,7 +61,8 @@ setup_nvidia-gpu-admin-tools()
 	git clone ${TARGET_GIT}
 
 	rm -rf dist
-	pyinstaller -s -F gpu-admin-tools/nvidia_gpu_tools.py
+	# Installed via pipx local python environment
+	"${HOME}"/.local/bin/pyinstaller -s -F gpu-admin-tools/nvidia_gpu_tools.py
 
 	cp dist/nvidia_gpu_tools ../destdir/sbin/.
 
@@ -242,8 +243,6 @@ chisseled_compute()
 	libdir="lib64"
 	cp -aL "${stage_one}"/${libdir}/ld-linux-x86-64.so.* lib64/.
 
-
-
 	libdir="usr/lib/x86_64-linux-gnu"
 	cp -a "${stage_one}"/${libdir}/libnvidia-ml.so.*  lib/x86_64-linux-gnu/.
 	cp -a "${stage_one}"/${libdir}/libcuda.so.*       lib/x86_64-linux-gnu/.
@@ -253,6 +252,8 @@ chisseled_compute()
 	cp -a "${stage_one}"/usr/bin/nvidia-persistenced  bin/.
 	cp -a "${stage_one}"/usr/bin/nvidia-smi           bin/.
 	cp -a "${stage_one}"/usr/bin/nvidia-ctk           bin/.
+	cp -a "${stage_one}"/usr/bin/nvidia-cdi-hook      bin/.
+	ln -s ../bin usr/bin
 }
 
 chisseled_gpudirect()
@@ -300,6 +301,13 @@ compress_rootfs()
 		strip "${file}"
 		${BUILD_DIR}/upx-4.2.4-amd64_linux/upx --best --lzma "${file}"
 	done
+
+ 	# While I was playing with compression the executable flag on
+	# /lib64/ld-linux-x86-64.so.2 was lost...
+	# Since this is the program interpreter, it needs to be executable
+	# as well.. sigh
+	chmod +x lib64/ld-linux-x86-64.so.2
+
 }
 
 toggle_debug()
@@ -349,7 +357,6 @@ setup_nvidia_gpu_rootfs_stage_two()
 	done
 
 	compress_rootfs
-
 
 	chroot . ldconfig
 
