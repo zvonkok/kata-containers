@@ -499,7 +499,7 @@ pub struct DeviceInfo {
     ///
     /// Enabling this will result in the VM balloon device having f_reporting=on set
     #[serde(default)]
-    pub enable_balloon_f_reporting: bool,
+    pub reclaim_guest_freed_memory: bool,
 }
 
 impl DeviceInfo {
@@ -707,12 +707,6 @@ pub struct MemoryInfo {
     /// "echo 1 > /proc/sys/vm/overcommit_memory".
     #[serde(default)]
     pub enable_virtio_mem: bool,
-
-    /// Enable swap of vm memory. Default false.
-    ///
-    /// The behaviour is undefined if mem_prealloc is also set to true
-    #[serde(default)]
-    pub enable_swap: bool,
 
     /// Enable swap in the guest. Default false.
     ///
