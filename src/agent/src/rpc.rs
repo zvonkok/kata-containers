@@ -1299,6 +1299,9 @@ impl agent_ttrpc::AgentService for AgentService {
             }
         }
 
+        #[cfg(feature = "guest-pull")]
+        image::init_image_service().await.map_ttrpc_err(same)?;
+
         Ok(Empty::new())
     }
 
@@ -1752,9 +1755,6 @@ pub async fn start(
 
     let health_service = Box::new(HealthService {}) as Box<dyn health_ttrpc::Health + Send + Sync>;
     let hservice = health_ttrpc::create_health(Arc::new(health_service));
-
-    #[cfg(feature = "guest-pull")]
-    image::init_image_service().await?;
 
     let server = TtrpcServer::new()
         .bind(server_address)?
