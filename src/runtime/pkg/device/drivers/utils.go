@@ -43,6 +43,7 @@ var (
 	PCISysFsSlotsMaxBusSpeed PCISysFsProperty = "max_bus_speed" // /sys/bus/pci/slots/xxx/max_bus_speed
 	PCISysFsDevicesVendor    PCISysFsProperty = "vendor"        // /sys/bus/pci/devices/xxx/vendor
 	PCISysFsDevicesDevice    PCISysFsProperty = "device"        // /sys/bus/pci/devices/xxx/device
+	PCISysFsDeviceNumaNode   PCISysFsProperty = "numa_node"     // /sys/bus/pci/devices/xxx/numa_node
 )
 
 func deviceLogger() *logrus.Entry {
