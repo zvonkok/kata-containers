@@ -738,6 +738,7 @@ func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, vfioDev conf
 			DeviceID: vfioDev.DeviceID,
 			Bus:      vfioDev.Bus,
 			SysfsDev: vfioDev.SysfsDev,
+			DevfsDev: vfioDev.DevfsDev,
 		},
 	)
 

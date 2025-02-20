@@ -405,6 +405,9 @@ type VFIODev struct {
 	// sysfsdev of VFIO mediated device
 	SysfsDev string
 
+	// DevfsDev is used to identify a VFIO Group device or IOMMMUFD VFIO device
+	DevfsDev string
+
 	// VendorID specifies vendor id
 	VendorID string
 
