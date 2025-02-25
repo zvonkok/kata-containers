@@ -224,11 +224,13 @@ func GetDeviceFromVFIODev(device config.DeviceInfo) ([]*config.VFIODev, error) {
 	vendorID := getPCIDeviceProperty(deviceBDF, PCISysFsDevicesVendor)
 	deviceID := getPCIDeviceProperty(deviceBDF, PCISysFsDevicesDevice)
 	pciClass := getPCIDeviceProperty(deviceBDF, PCISysFsDevicesClass)
+	numaID := getPCIDeviceProperty(deviceBDF, PCISysFsDeviceNumaNode)
 
-	id, err := extractIndex(device.HostPath)
+	i, err := extractIndex(device.HostPath)
 	if err != nil {
 		return nil, err
 	}
+	id := utils.MakeNameID("vfio", device.ID+i, maxDevIDSize)
 
 	vfio := config.VFIODev{
 		ID:       id,
@@ -242,6 +244,8 @@ func GetDeviceFromVFIODev(device config.DeviceInfo) ([]*config.VFIODev, error) {
 		DeviceID: deviceID,
 		Port:     device.Port,
 		HostPath: device.HostPath,
+		NumaNode: numaID,
+		NumNUMA:  device.NumNUMA,
 	}
 	vfioDevs := []*config.VFIODev{&vfio}
 
