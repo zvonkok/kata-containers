@@ -66,19 +66,19 @@ jobs:
         run: bash tests/integration/kubernetes/gha-run.sh run-nv-tests
         env:
           NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
-      - name: Collect artifacts ${{ matrix.vmm }}
-        if: always()
-        run: bash tests/integration/kubernetes/gha-run.sh collect-artifacts
-        continue-on-error: true
+#      - name: Collect artifacts ${{ matrix.vmm }}
+#        if: always()
+#        run: bash tests/integration/kubernetes/gha-run.sh collect-artifacts
+#        continue-on-error: true
 
-      - name: Archive artifacts ${{ matrix.vmm }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: k8s-tests-${{ matrix.vmm }}-${{ matrix.k8s }}-${{ inputs.tag }}
-          path: /tmp/artifacts
-          retention-days: 1
+#      - name: Archive artifacts ${{ matrix.vmm }}
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: k8s-tests-${{ matrix.vmm }}-${{ matrix.k8s }}-${{ inputs.tag }}
+#          path: /tmp/artifacts
+#          retention-days: 1
 
-      - name: Delete kata-deploy
-        if: always()
-        timeout-minutes: 5
-        run: bash tests/integration/kubernetes/gha-run.sh cleanup
+#      - name: Delete kata-deploy
+#        if: always()
+#        timeout-minutes: 5
+#        run: bash tests/integration/kubernetes/gha-run.sh cleanup
