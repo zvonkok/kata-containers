@@ -248,6 +248,6 @@ EOF
 #  	[ "$output" = "The NVIDIA Jetson Nano Developer Kit is a small, powerful computer designed for AI and robotics applications." ]
 }
 teardown() {
-	kubectl describe "pod/$POD_NAME_INSTRUCT" -n default
-	kubectl delete pod "$POD_NAME_INSTRUCT" -n default
+	kubectl describe "pod/$POD_NAME_INSTRUCT"
+	#kubectl delete pod "$POD_NAME_INSTRUCT" -n default
 }
