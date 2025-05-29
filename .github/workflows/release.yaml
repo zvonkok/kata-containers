@@ -18,10 +18,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Symlink helm-chart to charts for easier consumption
+        run: |
+          ln -s tools/packaging/kata-deploy/helm-chart charts
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
-        with:
-          charts_dir: tools/packaging/kata-deploy/helm-chart
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
