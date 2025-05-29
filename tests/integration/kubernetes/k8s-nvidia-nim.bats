@@ -296,11 +296,11 @@ EOF
     run python3 ${HOME}/.cicd/venv/langchain_nim_kata_rag.py
     [ "$status" -eq 0 ]
 
-    ANWSER=$(echo ${output} | cut -d '#' -f2)
-    [ -n "${ANWSER}" ]
+    ANSWER=$(echo ${output} | cut -d '#' -f2)
+    [ -n "${ANSWER}" ]
 
     echo "# QUESTION: ${QUESTION}" >&3
-    echo "# ANWSER: ${ANWSER}" >&3
+    echo "# ANSWER: ${ANSWER}" >&3
 }
 
 teardown_file() {
