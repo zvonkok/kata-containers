@@ -20,6 +20,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  build-and-push-helm-chart:
+    runs-on: ubuntu-22.04
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: tools/packaging/kata-deploy/helm-chart/kata-deploy
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
   build-and-push-assets-amd64:
     needs: release
     permissions:
