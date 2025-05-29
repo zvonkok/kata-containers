@@ -6,23 +6,10 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create a new release
-        run: |
-          ./tools/packaging/release/release.sh create-new-release
-        env:
-          GH_TOKEN: ${{ github.token }}
 
   build-and-push-helm-chart:
     runs-on: ubuntu-22.04
-    needs: release
+#    needs: release
     permissions:
       contents: read
       packages: write
