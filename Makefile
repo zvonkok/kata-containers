@@ -4,7 +4,7 @@
 #
 
 # List of available components
-COMPONENTS =
+COMPONENTS =  
 
 COMPONENTS += libs
 COMPONENTS += agent
