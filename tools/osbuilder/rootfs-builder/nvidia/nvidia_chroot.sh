@@ -97,6 +97,42 @@ install_nvidia_fabricmanager_from_distribution() {
 	apt-mark hold nvidia-fabricmanager-"${driver_version}"  libnvidia-nscq-"${driver_version}"
 }
 
+prepare_lkrg_module() {
+	echo "chroot: Prepare lkrg module"
+	pushd /root >> /dev/null
+
+	# Skipping gpg verification for now, misbehaves in chroot environment
+	wget https://www.openwall.com/signatures/openwall-offline-signatures.asc
+	#gpg --import openwall-offline-signatures.asc
+	wget https://lkrg.org/download/lkrg-1.0.0.tar.gz.sign
+	wget https://lkrg.org/download/lkrg-1.0.0.tar.gz
+	#gpg --verify lkrg-1.0.0.tar.gz.sign lkrg-1.0.0.tar.gz
+
+	tar -xvf lkrg-1.0.0.tar.gz
+	popd >> /dev/null
+}
+
+build_lkrg_module() {
+	echo "chroot: Build lkrg module"
+
+	pushd /root/lkrg-1.0.0 >> /dev/null
+
+	local kernel_version
+	for version in /lib/modules/*; do
+		kernel_version=$(basename "${version}")
+
+		if [[ -n "${KBUILD_SIGN_PIN}" ]]; then
+			mkdir -p "${certs_dir}" && cp /signing_key.* "${certs_dir}"/.
+		fi
+
+		make -j "$(nproc)" -C /lib/modules/"${kernel_version}"/build M=/root/lkrg-1.0.0 modules
+		make INSTALL_MOD_STRIP=1 -j "$(nproc)" -C /lib/modules/"${kernel_version}"/build M=/root/lkrg-1.0.0 modules_install
+		make -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build clean > /dev/null
+	done
+
+	popd >> /dev/null
+}
+
 build_nvidia_drivers() {
 	is_feature_enabled "compute" || {
 		echo "chroot: Skipping NVIDIA drivers build"
@@ -114,7 +150,7 @@ build_nvidia_drivers() {
 		certs_dir=/lib/modules/"${kernel_version}"/build/certs
 		signing_key=${certs_dir}/signing_key.pem
 
-	        echo "chroot: Building GPU modules for: ${kernel_version}"
+		echo "chroot: Building GPU modules for: ${kernel_version}"
 		cp /boot/System.map-"${kernel_version}" /lib/modules/"${kernel_version}"/build/System.map
 
 		if [[ "${arch_target}" == "aarch64" ]]; then
@@ -129,12 +165,11 @@ build_nvidia_drivers() {
 
 		echo "chroot: Building GPU modules for: ${kernel_version} ${ARCH}"
 
-		make -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build > /dev/null
-
 		if [[ -n "${KBUILD_SIGN_PIN}" ]]; then
-			mkdir -p "${certs_dir}" && mv /signing_key.* "${certs_dir}"/.
+			mkdir -p "${certs_dir}" && cp /signing_key.* "${certs_dir}"/.
 		fi
 
+		make -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build > /dev/null
 		make INSTALL_MOD_STRIP=1 -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build modules_install
 		make -j "$(nproc)" CC=gcc SYSSRC=/lib/modules/"${kernel_version}"/build clean > /dev/null
 		# The make clean above should clear also the certs directory but just in case something
@@ -240,7 +275,7 @@ prepare_nvidia_drivers() {
 
 install_build_dependencies() {
 	echo "chroot: Install NVIDIA drivers build dependencies"
-	eval "${APT_INSTALL}" make gcc gawk kmod libvulkan1 pciutils jq zstd linuxptp xz-utils
+	eval "${APT_INSTALL}" make gcc gawk kmod libvulkan1 pciutils jq zstd linuxptp xz-utils wget gpg gpg-agent ca-certificates
 }
 
 setup_apt_repositories() {
@@ -360,6 +395,8 @@ set_driver_version_type
 setup_apt_repositories
 install_kernel_dependencies
 install_build_dependencies
+prepare_lkrg_module
+build_lkrg_module
 prepare_nvidia_drivers
 build_nvidia_drivers
 install_userspace_components
