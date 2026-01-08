@@ -448,6 +448,8 @@ get_config_version() {
 
 setup_kernel() {
 	local kernel_path=${1:-}
+	local gpu_vendor=${2:-}
+
 	[ -n "${kernel_path}" ] || die "kernel_path not provided"
 
 	if [[ "$force_setup_generate_config" == "true" ]] && [[ -d "$kernel_path" ]];then
@@ -476,6 +478,338 @@ setup_kernel() {
 		fi
 
 		[ -n "$kernel_path" ] || die "failed to find kernel source path"
+	fi
+
+	# GPU vendor == NVIDIA: Clone the open-source NVIDIA GPU kernel modules into the
+	# kernel tree at drivers/gpu/nvidia/. These modules will be built as built-in (obj-y)
+	# rather than loadable modules (obj-m) since the Kata guest kernel is minimal and
+	# does not support module loading. The driver uses PCI device matching, so it
+	# gracefully does nothing when no NVIDIA GPU is present in the VM.
+	if [[ "${gpu_vendor}" == "${VENDOR_NVIDIA}" ]]; then
+		kernel_nvidia_path="${kernel_path}/drivers/gpu/nvidia"
+		mkdir -p ${kernel_nvidia_path}
+		pushd ${kernel_nvidia_path} >> /dev/null
+		info "Checking out open-gpu-kernel-modules repo"
+		GIT_TERMINAL_PROMPT=0 git clone -b 590.48.01.Z --single-branch --depth 1 \
+			https://github.com/zvonkok/open-gpu-kernel-modules.git .
+
+		# Apply in-tree kernel build fixes for kernel 6.x
+		info "Applying in-tree build patches for NVIDIA driver"
+
+		# 1. Create kernel 6.x compatibility header to OVERRIDE conftest's wrong detections
+		# This is included AFTER conftest.h so we use #undef then #define
+		cat > kernel-open/common/inc/nv-kernel-6x-compat.h << 'NVCOMPAT'
+/*
+ * Kernel 6.x In-Tree Build Compatibility Header
+ *
+ * This header is included AFTER conftest.h to override incorrect detections.
+ * Conftest runs compile tests that may fail in the in-tree build environment,
+ * so we provide the correct values for kernel 6.x here.
+ */
+#ifndef _NV_KERNEL_6X_COMPAT_H_
+#define _NV_KERNEL_6X_COMPAT_H_
+
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+
+/* Override conftest detections with correct kernel 6.x values */
+
+/* of_dma_configure has 3 args since 4.18 */
+#undef NV_OF_DMA_CONFIGURE_ARGUMENT_COUNT
+#define NV_OF_DMA_CONFIGURE_ARGUMENT_COUNT 3
+
+/* DMA APIs removed/privatized in kernel 5.17+ */
+#undef NV_DMA_IS_DIRECT_PRESENT
+#undef NV_PHYS_TO_DMA_PRESENT
+#undef NV_IS_EXPORT_SYMBOL_PRESENT_swiotlb_map_sg_attrs
+#define NV_IS_EXPORT_SYMBOL_PRESENT_swiotlb_map_sg_attrs 0
+#undef NV_IS_EXPORT_SYMBOL_PRESENT_swiotlb_dma_ops
+#define NV_IS_EXPORT_SYMBOL_PRESENT_swiotlb_dma_ops 0
+
+/* Memory encryption - these ARE available in kernel 6.x */
+#undef NV_IS_EXPORT_SYMBOL_GPL_set_memory_encrypted
+#define NV_IS_EXPORT_SYMBOL_GPL_set_memory_encrypted 0
+#undef NV_IS_EXPORT_SYMBOL_GPL_set_memory_decrypted
+#define NV_IS_EXPORT_SYMBOL_GPL_set_memory_decrypted 0
+
+/* Refcount APIs - available in kernel 6.x */
+#undef NV_IS_EXPORT_SYMBOL_GPL_refcount_inc
+#define NV_IS_EXPORT_SYMBOL_GPL_refcount_inc 1
+#undef NV_IS_EXPORT_SYMBOL_GPL_refcount_dec_and_test
+#define NV_IS_EXPORT_SYMBOL_GPL_refcount_dec_and_test 1
+
+/* timer_delete_sync available in kernel 6.x */
+#undef NV_IS_EXPORT_SYMBOL_PRESENT_timer_delete_sync
+#define NV_IS_EXPORT_SYMBOL_PRESENT_timer_delete_sync 1
+
+/* These should already be correct from compile tests, but ensure they are */
+#ifndef NV_MM_HAS_MMAP_LOCK
+#define NV_MM_HAS_MMAP_LOCK
+#endif
+#ifndef NV_VM_FAULT_T_IS_PRESENT
+#define NV_VM_FAULT_T_IS_PRESENT
+#endif
+#ifndef NV_VM_FLAGS_SET_PRESENT
+#define NV_VM_FLAGS_SET_PRESENT
+#endif
+#ifndef NV_PROC_OPS_PRESENT
+#define NV_PROC_OPS_PRESENT
+#endif
+#ifndef NV_KTIME_GET_RAW_TS64_PRESENT
+#define NV_KTIME_GET_RAW_TS64_PRESENT
+#endif
+
+/* set_memory_array_uc/wb removed in kernel 6.x - force fallback path */
+#undef NV_SET_MEMORY_ARRAY_UC_PRESENT
+
+#endif /* LINUX_VERSION_CODE >= 6.0.0 */
+#endif /* _NV_KERNEL_6X_COMPAT_H_ */
+NVCOMPAT
+
+		# 2. Fix nv_stdarg.h - use linux/stdarg.h for kernel builds
+		cat > kernel-open/common/inc/nv_stdarg.h << 'NVSTDARG'
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: MIT
+ */
+#ifndef _NV_STDARG_H_
+#define _NV_STDARG_H_
+
+#if defined(NV_KERNEL_INTERFACE_LAYER) && defined(NV_LINUX)
+  #include <linux/stdarg.h>
+#else
+  #include <stdarg.h>
+#endif
+
+#endif
+NVSTDARG
+
+		# 3. Include compat header at the END of conftest.h so ALL files get correct overrides
+		# This is cleaner than patching individual files (nv-linux.h, nv-time.h, nv-mm.h, nvidia-drm-conftest.h)
+		sed -i '/#endif/i\
+\
+/* Include kernel 6.x compatibility overrides */\
+#include "nv-kernel-6x-compat.h"' kernel-open/common/inc/conftest.h
+
+		# 4. Fix Kbuild for in-tree builds
+		sed -i '/^NV_BUILD_TYPE ?= release/a\
+NV_INTREE_BUILD := 1' kernel-open/Kbuild
+		sed -i 's/BUILD_SANITY_CHECKS += module_symvers_sanity_check/# Skipped: module_symvers_sanity_check/' kernel-open/Kbuild
+
+		# 5. conftest.sh - no changes needed
+		# Compile tests work correctly; symbol checks default to "not present"
+		# when Module.symvers is missing, which is correct for kernel 6.x
+
+		# 6. Fix autoconf.h paths - modern kernels use generated/autoconf.h
+		sed -i 's|#include <linux/autoconf.h>|#include <generated/autoconf.h>|' kernel-open/nvidia/internal_crypt_lib.h
+		sed -i 's|#include <linux/autoconf.h>|#include <generated/autoconf.h>|' kernel-open/common/inc/nv-linux.h
+
+		# === DIRECT CODE FIXES for code WITHOUT proper #ifdef guards ===
+
+		# 7. nv-dma.c: get_dma_ops() was privatized in kernel 5.17+
+		python3 -c "
+with open('kernel-open/nvidia/nv-dma.c', 'r') as f:
+    c = f.read()
+old = 'const struct dma_map_ops *ops = get_dma_ops(dma_dev->dev);'
+new = '#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)\n    return NV_FALSE;\n#else\n    const struct dma_map_ops *ops = get_dma_ops(dma_dev->dev);'
+c = c.replace(old, new)
+c = c.replace('return (ops->map_resource != NULL);', 'return (ops->map_resource != NULL);\n#endif')
+with open('kernel-open/nvidia/nv-dma.c', 'w') as f:
+    f.write(c)
+"
+		# 8. nv-linux.h: nv_dma_maps_swiotlb - comment out get_dma_ops for kernel 5.17+
+		# For kernel 5.17+, get_dma_ops was privatized, so we disable swiotlb detection
+		sed -i 's/const struct dma_map_ops \*ops __attribute__.*= get_dma_ops(dev);/const struct dma_map_ops *ops __attribute__ ((unused)) = NULL; \/\* get_dma_ops removed 5.17+ *\//' kernel-open/common/inc/nv-linux.h
+
+		# 10. os-interface.c: struct timespec removed in kernel 6.x - use timespec64
+		sed -i 's/struct timespec ts;/struct timespec64 ts;/' kernel-open/nvidia/os-interface.c
+		sed -i 's/getnstimeofday(&ts);/ktime_get_real_ts64(\&ts);/' kernel-open/nvidia/os-interface.c
+
+
+		# 9. nv-backlight.c: get_backlight_device_by_name renamed to backlight_device_get_by_name
+		sed -i 's/get_backlight_device_by_name/backlight_device_get_by_name/g' kernel-open/nvidia/nv-backlight.c
+
+
+		# 12. nv-caps-imex.c: class_create signature changed in kernel 6.4 (removed THIS_MODULE)
+		sed -i 's/class_create(THIS_MODULE,/class_create(/' kernel-open/nvidia/nv-caps-imex.c
+		# Fix devnode callback signature (const struct device* in 6.x)
+		python3 -c "
+with open('kernel-open/nvidia/nv-caps-imex.c', 'r') as f:
+    c = f.read()
+import re
+# Match various whitespace patterns
+c = re.sub(r'(char\s*\*\s*nv_caps_imex_devnode\s*\()struct device', r'\1const struct device', c)
+with open('kernel-open/nvidia/nv-caps-imex.c', 'w') as f:
+    f.write(c)
+"
+
+		# 13. uvm_linux.h: sg_dma_page_iter now defined in kernel - wrap in #if 0
+		python3 << 'UVMPATCH'
+with open('kernel-open/nvidia-uvm/uvm_linux.h', 'r') as f:
+    c = f.read()
+old = """    struct sg_dma_page_iter {
+        struct sg_page_iter base;
+    };"""
+new = """#if 0 /* sg_dma_page_iter defined in kernel 6.x */
+    struct sg_dma_page_iter {
+        struct sg_page_iter base;
+    };
+#endif"""
+c = c.replace(old, new)
+with open('kernel-open/nvidia-uvm/uvm_linux.h', 'w') as f:
+    f.write(c)
+UVMPATCH
+
+		# 14. nv-pci.c: iommu_dev_enable/disable_feature removed - replace with 0
+		sed -i 's|iommu_dev_enable_feature(nvl->dev, IOMMU_DEV_FEAT_SVA)|0|' kernel-open/nvidia/nv-pci.c
+		sed -i 's|iommu_dev_disable_feature(nvl->dev, IOMMU_DEV_FEAT_SVA)|0|' kernel-open/nvidia/nv-pci.c
+
+		# 15. os-interface.c: timespec APIs - use 64-bit versions
+		sed -i 's/jiffies_to_timespec(/jiffies_to_timespec64(/g' kernel-open/nvidia/os-interface.c
+		sed -i 's/timespec_to_ns(/timespec64_to_ns(/g' kernel-open/nvidia/os-interface.c
+
+		# 16. os-interface.c: add_memory_driver_managed needs MHP_NONE flag
+		sed -i 's/add_memory_driver_managed(node, segment_base, segment_size, "System RAM (NVIDIA)")/add_memory_driver_managed(node, segment_base, segment_size, "System RAM (NVIDIA)", MHP_NONE)/' kernel-open/nvidia/os-interface.c
+
+		# 17. nv-vm.c: add set_memory.h include
+		python3 -c "
+with open('kernel-open/nvidia/nv-vm.c', 'r') as f:
+    c = f.read()
+if '#include <asm/set_memory.h>' not in c:
+    c = c.replace('#include \"nv-linux.h\"', '#include \"nv-linux.h\"\n#include <asm/set_memory.h>', 1)
+with open('kernel-open/nvidia/nv-vm.c', 'w') as f:
+    f.write(c)
+"
+
+		# 18. os-mlock.c: follow_pfn removed - return error
+		sed -i 's|return follow_pfn(vma, address, pfn);|return -EINVAL;|' kernel-open/nvidia/os-mlock.c
+
+		# 19. uvm_gpu.c: dma_to_phys not exported - use direct cast
+		sed -i 's/dma_to_phys(&gpu->parent->pci_dev->dev, (dma_addr_t)address.address)/(phys_addr_t)address.address/' kernel-open/nvidia-uvm/uvm_gpu.c
+
+
+		# 20. uvm_populate_pageable.c: handle_mm_fault has 4 args in kernel 6.x (added regs arg)
+		python3 -c "
+with open('kernel-open/nvidia-uvm/uvm_populate_pageable.c', 'r') as f:
+    c = f.read()
+# Change handle_mm_fault(vma, addr, flags) to handle_mm_fault(vma, addr, flags, NULL)
+c = c.replace('handle_mm_fault(vma, addr, flags)', 'handle_mm_fault(vma, addr, flags, NULL)')
+with open('kernel-open/nvidia-uvm/uvm_populate_pageable.c', 'w') as f:
+    f.write(c)
+"
+
+		# 21. uvm_linux.h: fix uvm_sg_page_iter_dma_address macro for kernel 6.x
+		python3 -c "
+with open('kernel-open/nvidia-uvm/uvm_linux.h', 'r') as f:
+    c = f.read()
+# The macro passes &((dma_iter)->base) but should pass dma_iter directly
+c = c.replace('sg_page_iter_dma_address(&((dma_iter)->base))', 'sg_page_iter_dma_address(dma_iter)')
+with open('kernel-open/nvidia-uvm/uvm_linux.h', 'w') as f:
+    f.write(c)
+"
+
+		# 22-25. Remove duplicate source files for built-in kernel build
+		# nv-kthread-q.c and nv-pci-table.c are symlinked into multiple module dirs
+		# For built-in (obj-y), these cause multiple definition errors
+		# Keep them only in nvidia/ (main module), remove from others
+		info "Removing duplicate source files from sub-module Kbuilds for built-in build"
+
+		# 22. nvidia-modeset: remove nv-kthread-q.c
+		sed -i '/NVIDIA_MODESET_SOURCES.*nv-kthread-q.c/d' kernel-open/nvidia-modeset/nvidia-modeset.Kbuild
+
+		# 23. nvidia-drm: remove nv-kthread-q.c and nv-pci-table.c
+		sed -i '/NVIDIA_DRM_SOURCES.*nv-kthread-q.c/d' kernel-open/nvidia-drm/nvidia-drm-sources.mk
+		sed -i '/NVIDIA_DRM_SOURCES.*nv-pci-table.c/d' kernel-open/nvidia-drm/nvidia-drm-sources.mk
+
+		# 24. nvidia-uvm: remove nv-kthread-q.c (and selftest)
+		sed -i '/NVIDIA_UVM_SOURCES.*nv-kthread-q.c/d' kernel-open/nvidia-uvm/nvidia-uvm-sources.Kbuild
+		sed -i '/NVIDIA_UVM_SOURCES.*nv-kthread-q-selftest.c/d' kernel-open/nvidia-uvm/nvidia-uvm-sources.Kbuild
+
+		# 25. nvidia-uvm: remove nvstatus.c (conflicts with nv-kernel.o_binary blob)
+		sed -i '/NVIDIA_UVM_SOURCES.*nvstatus.c/d' kernel-open/nvidia-uvm/nvidia-uvm-sources.Kbuild
+
+		# 26. nv-backlight.c: backlight_device_get_by_name requires CONFIG_BACKLIGHT_CLASS_DEVICE
+		# Undefine NV_GET_BACKLIGHT_DEVICE_BY_NAME_PRESENT so the #else path (NV_ERR_NOT_SUPPORTED) is used
+		# Add the undef at the top of the file, after the includes
+		sed -i 's|#include "nv-linux.h"|#include "nv-linux.h"\n\n/* Disable backlight - requires CONFIG_BACKLIGHT_CLASS_DEVICE which is not enabled in Kata */\n#undef NV_GET_BACKLIGHT_DEVICE_BY_NAME_PRESENT|' kernel-open/nvidia/nv-backlight.c
+
+		# 27. nv-platform.c: Tegra-specific functions don't exist on x86_64
+		# Use weak symbols for the external Tegra functions
+		python3 << 'TEGRAPATCH'
+with open('kernel-open/nvidia/nv-platform.c', 'r') as f:
+    c = f.read()
+
+# Add weak stub implementations at the end of file, before the last #endif if any
+# These provide fallback implementations when the real Tegra functions aren't linked
+
+stub_code = '''
+/* Weak stubs for Tegra functions - used on non-Tegra platforms (x86_64) */
+#ifndef CONFIG_ARCH_TEGRA
+int __attribute__((weak)) tegra_fuse_control_read(unsigned long addr, unsigned int *data)
+{
+    return -ENODEV;
+}
+
+int __attribute__((weak)) tsec_comms_send_cmd(void *cmd, unsigned int queue_id,
+    void (*cb_func)(void *, void *), void *cb_context)
+{
+    return -ENODEV;
+}
+
+int __attribute__((weak)) tsec_comms_set_init_cb(void (*cb_func)(void *, void *), void *cb_context)
+{
+    return -ENODEV;
+}
+
+void __attribute__((weak)) tsec_comms_clear_init_cb(void)
+{
+}
+
+void * __attribute__((weak)) tsec_comms_alloc_mem_from_gscco(unsigned int size_in_bytes, unsigned int *gscco_offset)
+{
+    return NULL;
+}
+
+void __attribute__((weak)) tsec_comms_free_gscco_mem(void *mem)
+{
+}
+#endif /* !CONFIG_ARCH_TEGRA */
+'''
+
+# Append the stubs at the end of the file
+c = c.rstrip() + '\n' + stub_code + '\n'
+
+with open('kernel-open/nvidia/nv-platform.c', 'w') as f:
+    f.write(c)
+TEGRAPATCH
+
+		# 28. uvm_test.c: nv_kthread_q_run_self_test called but we removed the source
+		# Stub it out or remove the test
+		python3 << 'UVMTESTPATCH'
+with open('kernel-open/nvidia-uvm/uvm_test.c', 'r') as f:
+    c = f.read()
+
+# Replace the call to nv_kthread_q_run_self_test with NV_OK
+c = c.replace('nv_kthread_q_run_self_test()', 'NV_OK')
+
+with open('kernel-open/nvidia-uvm/uvm_test.c', 'w') as f:
+    f.write(c)
+UVMTESTPATCH
+
+		# 29. Remove -ffunction-sections and -fdata-sections from NVIDIA Makefiles
+		# These create per-function/data sections that cause "orphan section" linker warnings
+		# when linked into the kernel. For in-tree builds, kernel's DCE handles this.
+		sed -i '/^CFLAGS += -ffunction-sections/d' src/nvidia/Makefile
+		sed -i '/^CFLAGS += -fdata-sections/d' src/nvidia/Makefile
+		sed -i '/^CFLAGS += -ffunction-sections/d' src/nvidia-modeset/Makefile
+		sed -i '/^CFLAGS += -fdata-sections/d' src/nvidia-modeset/Makefile
+
+		popd >> /dev/null
+
+		# Hook NVIDIA driver into kernel build (built-in)
+		info "Adding NVIDIA to drivers/gpu/Makefile"
+		echo "obj-y += nvidia/" >> "${kernel_path}/drivers/gpu/Makefile"
 	fi
 
 	get_config_and_patches
@@ -522,6 +856,50 @@ build_kernel() {
 	[ -d "${kernel_path}" ] || die "path to kernel does not exist, use ${script_name} setup"
 	[ -n "${arch_target}" ] || arch_target="$(uname -m)"
 	arch_target=$(arch_to_kernel "${arch_target}")
+
+	# Build NVIDIA kernel objects before kernel build (if NVIDIA GPU support enabled)
+	#
+	# The NVIDIA driver has two parts:
+	# 1. src/nvidia/ - OS-agnostic Resource Manager, built separately → nv-kernel.o
+	# 2. kernel-open/ - Linux kernel interface layer, built by Kbuild
+	#
+	# The Kbuild expects kernel-open/nvidia/nv-kernel.o_binary to exist.
+	# In standalone builds, the top-level Makefile creates this as a symlink.
+	# For in-tree kernel builds, we must create the symlink manually since
+	# the standalone Makefile rules are skipped (KERNELRELEASE is set).
+	#
+	if [[ "${gpu_vendor}" == "${VENDOR_NVIDIA}" ]] && [[ -d "${kernel_path}/drivers/gpu/nvidia/src" ]]; then
+		local nvidia_path="${kernel_path}/drivers/gpu/nvidia"
+
+		info "Building NVIDIA kernel objects (nv-kernel.o, nv-modeset-kernel.o)"
+		make -C "${nvidia_path}/src/nvidia" -j$(nproc)
+		make -C "${nvidia_path}/src/nvidia-modeset" -j$(nproc)
+
+		# Localize conflicting symbols in precompiled blobs for built-in kernel
+		# nv-modeset-kernel.o contains xz decompression code that conflicts with kernel lib/xz
+		# and nvstatusToString that conflicts with nv-kernel.o
+		info "Localizing conflicting symbols in NVIDIA blobs for built-in build"
+		objcopy \
+			--localize-symbol=xz_dec_reset \
+			--localize-symbol=xz_dec_init \
+			--localize-symbol=xz_dec_run \
+			--localize-symbol=xz_dec_end \
+			--localize-symbol=xz_dec_lzma2_reset \
+			--localize-symbol=xz_dec_lzma2_run \
+			--localize-symbol=xz_dec_lzma2_create \
+			--localize-symbol=xz_dec_lzma2_end \
+			--localize-symbol=nvstatusToString \
+			"${nvidia_path}/src/nvidia-modeset/_out/Linux_x86_64/nv-modeset-kernel.o"
+
+		# Create .o_binary symlinks that kernel-open/ Kbuild expects
+		# These point to the objects we just built in src/
+		info "Creating NVIDIA .o_binary symlinks for Kbuild"
+		ln -sf "../../src/nvidia/_out/Linux_x86_64/nv-kernel.o" \
+			"${nvidia_path}/kernel-open/nvidia/nv-kernel.o_binary"
+		ln -sf "../../src/nvidia-modeset/_out/Linux_x86_64/nv-modeset-kernel.o" \
+			"${nvidia_path}/kernel-open/nvidia-modeset/nv-modeset-kernel.o_binary"
+	fi
+
 	pushd "${kernel_path}" >>/dev/null
 	make -j $(nproc) ARCH="${arch_target}" ${CROSS_BUILD_ARG}
 	if [ "${conf_guest}" == "confidential" ]; then
@@ -763,7 +1141,7 @@ main() {
 			install_kata "${kernel_path}"
 			;;
 		setup)
-			setup_kernel "${kernel_path}"
+			setup_kernel "${kernel_path}" "${gpu_vendor}"
 			[ -d "${kernel_path}" ] || die "${kernel_path} does not exist"
 			echo "Kernel source ready: ${kernel_path} "
 			;;
