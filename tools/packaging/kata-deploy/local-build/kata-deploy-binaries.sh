@@ -612,7 +612,7 @@ install_image_nvidia_gpu() {
 	export AGENT_POLICY
 	local version=$(get_from_kata_deps .externals.nvidia.driver.version)
 	EXTRA_PKGS="apt curl ${EXTRA_PKGS}"
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm,nvswitch"}
 	install_image "nvidia-gpu"
 }
 
@@ -621,7 +621,7 @@ install_initrd_nvidia_gpu() {
 	export AGENT_POLICY
 	local version=$(get_from_kata_deps .externals.nvidia.driver.version)
 	EXTRA_PKGS="apt curl ${EXTRA_PKGS}"
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm,nvswitch"}
 	install_initrd "nvidia-gpu"
 }
 
@@ -631,7 +631,7 @@ install_image_nvidia_gpu_confidential() {
 	local version=$(get_from_kata_deps .externals.nvidia.driver.version)
 	EXTRA_PKGS="apt curl ${EXTRA_PKGS}"
 	# TODO: export MEASURED_ROOTFS=yes
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm,nvswitch"}
 	install_image "nvidia-gpu-confidential"
 }
 
@@ -641,7 +641,7 @@ install_initrd_nvidia_gpu_confidential() {
 	local version=$(get_from_kata_deps .externals.nvidia.driver.version)
 	EXTRA_PKGS="apt curl ${EXTRA_PKGS}"
 	# TODO: export MEASURED_ROOTFS=yes
-	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm"}
+	NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-"driver=${version},compute,dcgm,nvswitch"}
 	install_initrd "nvidia-gpu-confidential"
 }
 
