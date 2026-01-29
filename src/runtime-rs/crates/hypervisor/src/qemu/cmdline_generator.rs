@@ -1879,6 +1879,7 @@ struct ObjectSevSnpGuest {
     reduced_phys_bits: u32,
     kernel_hashes: bool,
     host_data: Option<String>,
+    policy: u32,
     is_snp: bool,
 }
 
@@ -1890,6 +1891,7 @@ impl ObjectSevSnpGuest {
             reduced_phys_bits,
             kernel_hashes: true,
             host_data,
+            policy: 0x30000,
             is_snp,
         }
     }
@@ -1915,6 +1917,7 @@ impl ToQemuParams for ObjectSevSnpGuest {
                 "kernel-hashes={}",
                 if self.kernel_hashes { "on" } else { "off" }
             ));
+            params.push(format!("policy=0x{:x}", self.policy));
             if let Some(host_data) = &self.host_data {
                 params.push(format!("host-data={host_data}"))
             }
