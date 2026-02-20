@@ -268,11 +268,15 @@ function TestContainerMemoryUpdate() {
 		info "TestContainerMemoryUpdate skipped for qemu with runtime-rs"
 		info "Please check out https://github.com/kata-containers/kata-containers/issues/9375"
 		return
-	elif [[ "${KATA_HYPERVISOR}" != "qemu" ]] || [[ "${ARCH}" == "ppc64le" ]] || [[ "${ARCH}" == "s390x" ]]; then
+	elif [[ "${KATA_HYPERVISOR}" != "qemu" ]] || [[ "${ARCH}" == "ppc64le" ]]; then
 		return
 	fi
 
 	for virtio_mem_enabled in 1 0; do
+		# On s390x, only run the test when virtio_mem is enabled
+		if [[ "${ARCH}" == "s390x" ]] && [[ $virtio_mem_enabled -eq 0 ]]; then
+			continue
+		fi
 		PrepareContainerMemoryUpdate $virtio_mem_enabled
 		DoContainerMemoryUpdate $virtio_mem_enabled
 	done
@@ -282,7 +286,7 @@ function PrepareContainerMemoryUpdate() {
 	test_virtio_mem=$1
 
 	if [ $test_virtio_mem -eq 1 ]; then
-		if [[ "$ARCH" != "x86_64" ]] && [[ "$ARCH" != "aarch64" ]]; then
+		if [[ "$ARCH" != "x86_64" ]] && [[ "$ARCH" != "aarch64" ]] && [[ "$ARCH" != "s390x" ]]; then
 			return
 		fi
 		info "Test container memory update with virtio-mem"
