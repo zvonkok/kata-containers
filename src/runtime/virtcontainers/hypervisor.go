@@ -92,9 +92,10 @@ const (
 )
 
 var (
-	hvLogger                   = logrus.WithField("source", "virtcontainers/hypervisor")
-	noGuestMemHotplugErr error = errors.New("guest memory hotplug not supported")
-	conflictingAssets    error = errors.New("cannot set both image and initrd at the same time")
+	hvLogger                        = logrus.WithField("source", "virtcontainers/hypervisor")
+	noGuestMemHotplugErr      error = errors.New("guest memory hotplug not supported")
+	s390xVirtioMemRequiredErr error = errors.New("memory hotplug on s390x requires virtio-mem to be enabled")
+	conflictingAssets         error = errors.New("cannot set both image and initrd at the same time")
 )
 
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.

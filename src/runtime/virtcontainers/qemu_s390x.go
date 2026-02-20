@@ -199,10 +199,8 @@ func (q *qemuS390x) appendVhostUserDevice(ctx context.Context, devices []govmmQe
 	return devices, nil
 }
 
-// supportGuestMemoryHotplug return false for s390x architecture. The pc-dimm backend device for s390x
-// is not support. PC-DIMM is not listed in the devices supported by qemu-system-s390x -device help
 func (q *qemuS390x) supportGuestMemoryHotplug() bool {
-	return false
+	return q.protection == noneProtection
 }
 
 func (q *qemuS390x) appendNetwork(ctx context.Context, devices []govmmQemu.Device, endpoint Endpoint) ([]govmmQemu.Device, error) {

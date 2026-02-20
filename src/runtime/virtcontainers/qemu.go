@@ -995,37 +995,64 @@ func (q *qemu) setupVirtioMem(ctx context.Context) error {
 		return err
 	}
 
-	addr, bridge, err := q.arch.addDeviceToBridge(ctx, "virtiomem-dev", types.PCI)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			q.arch.removeDeviceFromBridge("virtiomem-dev")
-		}
-	}()
-
-	bridgeID := bridge.ID
-
-	// Hot add virtioMem dev to pcie-root-port for QemuVirt
 	machineType := q.HypervisorConfig().HypervisorMachineType
-	if machineType == QemuVirt {
-		addr = "00"
-		bridgeID = fmt.Sprintf("%s%d", config.PCIeRootPortPrefix, len(config.PCIeDevicesPerPort[config.RootPort]))
-		dev := config.VFIODev{ID: "virtiomem"}
-		config.PCIeDevicesPerPort[config.RootPort] = append(config.PCIeDevicesPerPort[config.RootPort], dev)
+
+	var driver, addr, devAddr, bus string
+	var bridge types.Bridge
+
+	if machineType == QemuCCWVirtio {
+		driver = "virtio-mem-ccw"
+
+		addr, bridge, err = q.arch.addDeviceToBridge(ctx, "virtiomem-dev", types.CCW)
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			if err != nil {
+				q.arch.removeDeviceFromBridge("virtiomem-dev")
+			}
+		}()
+
+		devAddr, err = bridge.AddressFormatCCW(addr)
+		if err != nil {
+			return err
+		}
+	} else {
+		driver = "virtio-mem-pci"
+
+		addr, bridge, err = q.arch.addDeviceToBridge(ctx, "virtiomem-dev", types.PCI)
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			if err != nil {
+				q.arch.removeDeviceFromBridge("virtiomem-dev")
+			}
+		}()
+
+		devAddr = addr
+		bus = bridge.ID
+
+		// Hot add virtioMem dev to pcie-root-port for QemuVirt
+		if machineType == QemuVirt {
+			devAddr = "00"
+			bus = fmt.Sprintf("%s%d", config.PCIeRootPortPrefix, len(config.PCIeDevicesPerPort[config.RootPort]))
+			dev := config.VFIODev{ID: "virtiomem"}
+			config.PCIeDevicesPerPort[config.RootPort] = append(config.PCIeDevicesPerPort[config.RootPort], dev)
+		}
 	}
 
-	err = q.qmpMonitorCh.qmp.ExecMemdevAdd(q.qmpMonitorCh.ctx, memoryBack, "virtiomem", target, sizeMB, share, "virtio-mem-pci", "virtiomem0", addr, bridgeID)
+	err = q.qmpMonitorCh.qmp.ExecMemdevAdd(q.qmpMonitorCh.ctx, memoryBack, "virtiomem", target, sizeMB, share, driver, "virtiomem0", devAddr, bus)
 	if err == nil {
-		q.Logger().Infof("Setup %dMB virtio-mem-pci success", sizeMB)
+		q.Logger().Infof("Setup %dMB %s success", sizeMB, driver)
 	} else {
 		help := ""
 		if strings.Contains(err.Error(), "Cannot allocate memory") {
 			help = ".  Please use command \"echo 1 > /proc/sys/vm/overcommit_memory\" handle it."
 		}
-		err = fmt.Errorf("Add %dMB virtio-mem-pci fail %s%s", sizeMB, err.Error(), help)
+		err = fmt.Errorf("Add %dMB %s fail %s%s", sizeMB, driver, err.Error(), help)
 	}
 
 	return err
@@ -2204,10 +2231,14 @@ func (q *qemu) hotplugRemoveCPUs(amount uint32) (uint32, error) {
 }
 
 func (q *qemu) hotplugMemory(memDev *MemoryDevice, op Operation) (int, error) {
-
 	if !q.arch.supportGuestMemoryHotplug() {
 		return 0, noGuestMemHotplugErr
 	}
+
+	if q.HypervisorConfig().HypervisorMachineType == QemuCCWVirtio && !q.config.VirtioMem {
+		return 0, s390xVirtioMemRequiredErr
+	}
+
 	if memDev.SizeMB < 0 {
 		return 0, fmt.Errorf("cannot hotplug negative size (%d) memory", memDev.SizeMB)
 	}

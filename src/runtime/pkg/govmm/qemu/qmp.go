@@ -1446,11 +1446,18 @@ func (q *QMP) ExecMemdevAdd(ctx context.Context, qomtype, id, mempath string, si
 		"memdev": id,
 	}
 
-	if bus != "" {
-		args["bus"] = bus
-	}
-	if addr != "" {
-		args["addr"] = addr
+	var transport VirtioTransport
+	if transport.isVirtioCCW(nil) {
+		if addr != "" {
+			args["devno"] = addr
+		}
+	} else {
+		if bus != "" {
+			args["bus"] = bus
+		}
+		if addr != "" {
+			args["addr"] = addr
+		}
 	}
 
 	err = q.executeCommand(ctx, "device_add", args, nil)
