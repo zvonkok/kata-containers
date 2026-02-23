@@ -170,7 +170,10 @@ setup() {
     cat $pod_config
 
     # The pod should be failed because the image is too large to be pulled in the timeout
-    assert_pod_fail "$pod_config"
+    local fail_timeout=120
+    # In this case, the host pulls first. Sometimes pull times spike, so allow longer to observe the failure
+    [[ -n "${EXPERIMENTAL_FORCE_GUEST_PULL}" ]] && fail_timeout=360
+    assert_pod_fail "$pod_config" "$fail_timeout"
 
     # runtime-rs has its dedicated error message, we need handle it separately.
     if [ "${KATA_HYPERVISOR}" == "qemu-coco-dev-runtime-rs" ]; then
