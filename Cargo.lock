@@ -1044,7 +1044,6 @@ dependencies = [
  "dbs-interrupt",
  "dbs-utils",
  "dbs-virtio-devices",
- "downcast-rs",
  "kvm-bindings",
  "kvm-ioctls",
  "libc",
@@ -1057,7 +1056,6 @@ dependencies = [
  "vfio-ioctls",
  "virtio-queue",
  "vm-memory",
- "vmm-sys-util 0.11.1",
 ]
 
 [[package]]
@@ -1074,7 +1072,6 @@ dependencies = [
 name = "dbs-upcall"
 version = "0.3.0"
 dependencies = [
- "anyhow",
  "dbs-utils",
  "dbs-virtio-devices",
  "log",
@@ -1270,12 +1267,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
-name = "downcast-rs"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
 name = "dragonball"
 version = "0.1.0"
 dependencies = [
@@ -1295,7 +1286,6 @@ dependencies = [
  "dbs-utils",
  "dbs-virtio-devices",
  "derivative",
- "fuse-backend-rs",
  "kvm-bindings",
  "kvm-ioctls",
  "lazy_static",
