@@ -489,6 +489,9 @@ ifneq (,$(QEMUCMD))
     # using an image and /dev is already mounted.
     KERNELPARAMS_NV = "cgroup_no_v1=all"
     KERNELPARAMS_NV += "devtmpfs.mount=0"
+    KERNELPARAMS_NV += "pci=realloc"
+    KERNELPARAMS_NV += "pci=nocrs"
+    KERNELPARAMS_NV += "pci=assign-busses"
 
     # Setting this to false can lead to cgroup leakages in the host
     # Best practice for production is to set this to true
