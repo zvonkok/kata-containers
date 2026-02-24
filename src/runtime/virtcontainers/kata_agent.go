@@ -1585,21 +1585,21 @@ func (k *kataAgent) handleEphemeralStorage(mounts []specs.Mount) ([]*grpc.Storag
 	var epheStorages []*grpc.Storage
 	for idx, mnt := range mounts {
 		if mnt.Type == KataEphemeralDevType {
-			origin_src := mounts[idx].Source
+			originSrc := mounts[idx].Source
 			stat := syscall.Stat_t{}
-			err := syscall.Stat(origin_src, &stat)
+			err := syscall.Stat(originSrc, &stat)
 			if err != nil {
-				k.Logger().WithError(err).Errorf("failed to stat %s", origin_src)
+				k.Logger().WithError(err).Errorf("failed to stat %s", originSrc)
 				return nil, err
 			}
 
-			var dir_options []string
+			var dirOptions []string
 
 			// if volume's gid isn't root group(default group), this means there's
 			// an specific fsGroup is set on this local volume, then it should pass
 			// to guest.
 			if stat.Gid != 0 {
-				dir_options = append(dir_options, fmt.Sprintf("%s=%d", fsGid, stat.Gid))
+				dirOptions = append(dirOptions, fmt.Sprintf("%s=%d", fsGid, stat.Gid))
 			}
 
 			// Set the mount source path to a path that resides inside the VM
@@ -1614,7 +1614,7 @@ func (k *kataAgent) handleEphemeralStorage(mounts []specs.Mount) ([]*grpc.Storag
 				Source:     "tmpfs",
 				Fstype:     "tmpfs",
 				MountPoint: mounts[idx].Source,
-				Options:    dir_options,
+				Options:    dirOptions,
 			}
 			epheStorages = append(epheStorages, epheStorage)
 		}
@@ -1628,21 +1628,21 @@ func (k *kataAgent) handleLocalStorage(mounts []specs.Mount, sandboxID string, r
 	var localStorages []*grpc.Storage
 	for idx, mnt := range mounts {
 		if mnt.Type == KataLocalDevType {
-			origin_src := mounts[idx].Source
+			originSrc := mounts[idx].Source
 			stat := syscall.Stat_t{}
-			err := syscall.Stat(origin_src, &stat)
+			err := syscall.Stat(originSrc, &stat)
 			if err != nil {
-				k.Logger().WithError(err).Errorf("failed to stat %s", origin_src)
+				k.Logger().WithError(err).Errorf("failed to stat %s", originSrc)
 				return nil, err
 			}
 
-			dir_options := localDirOptions
+			dirOptions := localDirOptions
 
 			// if volume's gid isn't root group(default group), this means there's
 			// an specific fsGroup is set on this local volume, then it should pass
 			// to guest.
 			if stat.Gid != 0 {
-				dir_options = append(dir_options, fmt.Sprintf("%s=%d", fsGid, stat.Gid))
+				dirOptions = append(dirOptions, fmt.Sprintf("%s=%d", fsGid, stat.Gid))
 			}
 
 			// Set the mount source path to a the desired directory point in the VM.
@@ -1659,7 +1659,7 @@ func (k *kataAgent) handleLocalStorage(mounts []specs.Mount, sandboxID string, r
 				Source:     KataLocalDevType,
 				Fstype:     KataLocalDevType,
 				MountPoint: mounts[idx].Source,
-				Options:    dir_options,
+				Options:    dirOptions,
 			}
 			localStorages = append(localStorages, localStorage)
 		}
@@ -1716,21 +1716,21 @@ func getContainerTypeforCRI(c *Container) (string, string) {
 }
 
 func handleImageGuestPullBlockVolume(c *Container, virtualVolumeInfo *types.KataVirtualVolume, vol *grpc.Storage) (*grpc.Storage, error) {
-	container_annotations := c.GetAnnotations()
+	containerAnnotations := c.GetAnnotations()
 	containerType, criContainerType := getContainerTypeforCRI(c)
 
-	var image_ref string
+	var imageRef string
 	if containerType == string(PodSandbox) {
-		image_ref = "pause"
+		imageRef = "pause"
 	} else {
 		const kubernetesCRIImageName = "io.kubernetes.cri.image-name"
 		const kubernetesCRIOImageName = "io.kubernetes.cri-o.ImageName"
 
 		switch criContainerType {
 		case ctrAnnotations.ContainerType:
-			image_ref = container_annotations[kubernetesCRIImageName]
+			imageRef = containerAnnotations[kubernetesCRIImageName]
 		case crioAnnotations.ContainerType:
-			image_ref = container_annotations[kubernetesCRIOImageName]
+			imageRef = containerAnnotations[kubernetesCRIOImageName]
 		default:
 			// There are cases, like when using nerdctl, where the criContainerType
 			// will never be set, leading to this code path.
@@ -1741,17 +1741,17 @@ func handleImageGuestPullBlockVolume(c *Container, virtualVolumeInfo *types.Kata
 			//
 			// With this in mind, let's "fallback" to the default k8s cri image-name
 			// annotation, as documented on our image-pull documentation.
-			image_ref = container_annotations[kubernetesCRIImageName]
+			imageRef = containerAnnotations[kubernetesCRIImageName]
 		}
 
-		if image_ref == "" {
+		if imageRef == "" {
 			return nil, fmt.Errorf("Failed to get image name from annotations")
 		}
 	}
-	virtualVolumeInfo.Source = image_ref
+	virtualVolumeInfo.Source = imageRef
 
 	//merge virtualVolumeInfo.ImagePull.Metadata and container_annotations
-	for k, v := range container_annotations {
+	for k, v := range containerAnnotations {
 		virtualVolumeInfo.ImagePull.Metadata[k] = v
 	}
 

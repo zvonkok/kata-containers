@@ -34,13 +34,13 @@ import (
 
 const (
 	DirectVolumePathKey   = "path"
-	AgentUrl              = "/agent-url"
-	DirectVolumeStatUrl   = "/direct-volume/stats"
-	DirectVolumeResizeUrl = "/direct-volume/resize"
-	IPTablesUrl           = "/iptables"
-	PolicyUrl             = "/policy"
-	IP6TablesUrl          = "/ip6tables"
-	MetricsUrl            = "/metrics"
+	AgentURL              = "/agent-url"
+	DirectVolumeStatURL   = "/direct-volume/stats"
+	DirectVolumeResizeURL = "/direct-volume/resize"
+	IPTablesURL           = "/iptables"
+	PolicyURL             = "/policy"
+	IP6TablesURL          = "/ip6tables"
+	MetricsURL            = "/metrics"
 )
 
 var (
@@ -288,13 +288,13 @@ func (s *service) startManagementServer(ctx context.Context, ociSpec *specs.Spec
 
 	// bind handler
 	m := http.NewServeMux()
-	m.Handle(MetricsUrl, http.HandlerFunc(s.serveMetrics))
-	m.Handle(AgentUrl, http.HandlerFunc(s.agentURL))
-	m.Handle(DirectVolumeStatUrl, http.HandlerFunc(s.serveVolumeStats))
-	m.Handle(DirectVolumeResizeUrl, http.HandlerFunc(s.serveVolumeResize))
-	m.Handle(IPTablesUrl, http.HandlerFunc(s.ipTablesHandler))
-	m.Handle(PolicyUrl, http.HandlerFunc(s.policyHandler))
-	m.Handle(IP6TablesUrl, http.HandlerFunc(s.ip6TablesHandler))
+	m.Handle(MetricsURL, http.HandlerFunc(s.serveMetrics))
+	m.Handle(AgentURL, http.HandlerFunc(s.agentURL))
+	m.Handle(DirectVolumeStatURL, http.HandlerFunc(s.serveVolumeStats))
+	m.Handle(DirectVolumeResizeURL, http.HandlerFunc(s.serveVolumeResize))
+	m.Handle(IPTablesURL, http.HandlerFunc(s.ipTablesHandler))
+	m.Handle(PolicyURL, http.HandlerFunc(s.policyHandler))
+	m.Handle(IP6TablesURL, http.HandlerFunc(s.ip6TablesHandler))
 	s.mountPprofHandle(m, ociSpec)
 
 	// register shim metrics

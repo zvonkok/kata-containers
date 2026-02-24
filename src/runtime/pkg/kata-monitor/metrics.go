@@ -259,7 +259,7 @@ func (km *KataMonitor) aggregateSandboxMetrics(encoder expfmt.Encoder, filterFam
 }
 
 func getParsedMetrics(sandboxID string, sandboxMetadata sandboxCRIMetadata) ([]*dto.MetricFamily, error) {
-	body, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.MetricsUrl)
+	body, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.MetricsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func getParsedMetrics(sandboxID string, sandboxMetadata sandboxCRIMetadata) ([]*
 
 // GetSandboxMetrics will get sandbox's metrics from shim
 func GetSandboxMetrics(sandboxID string) (string, error) {
-	body, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.MetricsUrl)
+	body, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.MetricsURL)
 	if err != nil {
 		return "", err
 	}

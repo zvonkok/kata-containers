@@ -98,7 +98,7 @@ func (km *KataMonitor) ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 // PprofIndex handles other `/debug/pprof/` requests
 func (km *KataMonitor) PprofIndex(w http.ResponseWriter, r *http.Request) {
 	if len(strings.TrimPrefix(r.URL.Path, "/debug/pprof/")) == 0 {
-		km.proxyRequest(w, r, copyResponseAddingSandboxIdToHref)
+		km.proxyRequest(w, r, copyResponseAddingSandboxIDToHref)
 	} else {
 		km.proxyRequest(w, r, nil)
 	}
@@ -132,7 +132,7 @@ func copyResponse(req *http.Request, w io.Writer, r io.Reader) error {
 	return err
 }
 
-func copyResponseAddingSandboxIdToHref(req *http.Request, w io.Writer, r io.Reader) error {
+func copyResponseAddingSandboxIDToHref(req *http.Request, w io.Writer, r io.Reader) error {
 	sb, err := getSandboxIDFromReq(req)
 	if err != nil {
 		monitorLog.WithError(err).Warning("missing sandbox query in pprof url")

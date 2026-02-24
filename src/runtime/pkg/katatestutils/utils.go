@@ -23,7 +23,7 @@ const (
 	testDirMode  = os.FileMode(0750)
 	testFileMode = os.FileMode(0640)
 
-	busyboxConfigJson = `
+	busyboxConfigJSON = `
 {
 	"ociVersion": "1.0.1-dev",
 	"process": {
@@ -359,7 +359,7 @@ func SetupOCIConfigFile(t *testing.T) (rootPath string, bundlePath, ociConfigFil
 	assert.NoError(err)
 
 	ociConfigFile = filepath.Join(bundlePath, "config.json")
-	err = os.WriteFile(ociConfigFile, []byte(busyboxConfigJson), testFileMode)
+	err = os.WriteFile(ociConfigFile, []byte(busyboxConfigJSON), testFileMode)
 	assert.NoError(err)
 
 	return tmpdir, bundlePath, ociConfigFile

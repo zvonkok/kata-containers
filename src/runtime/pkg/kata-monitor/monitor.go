@@ -184,7 +184,7 @@ func (km *KataMonitor) GetAgentURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.AgentUrl)
+	data, err := shimclient.DoGet(sandboxID, defaultTimeout, containerdshim.AgentURL)
 	if err != nil {
 		commonServeError(w, http.StatusBadRequest, err)
 		return

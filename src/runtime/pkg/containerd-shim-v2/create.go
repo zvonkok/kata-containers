@@ -360,7 +360,7 @@ func doMount(mounts []*containerd_types.Mount, rootfs string) error {
 	return nil
 }
 
-func configureNonRootHypervisor(runtimeConfig *oci.RuntimeConfig, sandboxId string) error {
+func configureNonRootHypervisor(runtimeConfig *oci.RuntimeConfig, sandboxID string) error {
 	userName, err := utils.CreateVmmUser()
 	if err != nil {
 		return err
@@ -369,7 +369,7 @@ func configureNonRootHypervisor(runtimeConfig *oci.RuntimeConfig, sandboxId stri
 		if err != nil {
 			shimLog.WithFields(logrus.Fields{
 				"user_name":  userName,
-				"sandbox_id": sandboxId,
+				"sandbox_id": sandboxID,
 			}).WithError(err).Warn("configure non root hypervisor failed, delete the user")
 			if err2 := utils.RemoveVmmUser(userName); err2 != nil {
 				shimLog.WithField("userName", userName).WithError(err).Warn("failed to remove user")
@@ -397,7 +397,7 @@ func configureNonRootHypervisor(runtimeConfig *oci.RuntimeConfig, sandboxId stri
 		"user_name":  userName,
 		"uid":        uid,
 		"gid":        gid,
-		"sandbox_id": sandboxId,
+		"sandbox_id": sandboxID,
 	}).Debug("successfully created a non root user for the hypervisor")
 
 	userTmpDir := path.Join("/run/user/", fmt.Sprint(uid))
