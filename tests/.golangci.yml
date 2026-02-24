@@ -26,6 +26,12 @@ linters:
       - third_party$
       - builtin$
       - examples$
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - "-ST1005" # ST1005: error strings should not be capitalized (staticcheck)
+        - "-ST1003" # ST1003 - Poorly chosen identifier is a non-default rule
 formatters:
   enable:
     - gofmt
