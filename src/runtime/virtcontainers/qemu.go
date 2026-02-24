@@ -2243,7 +2243,30 @@ func (q *qemu) hotplugMemory(memDev *MemoryDevice, op Operation) (int, error) {
 
 }
 
+// resizeVirtioMem resizes the virtio-mem device to the specified size in MB
+func (q *qemu) resizeVirtioMem(newSizeMB int) error {
+	if newSizeMB < 0 {
+		return fmt.Errorf("cannot resize virtio-mem device to negative size (%d) memory", newSizeMB)
+	}
+	sizeByte := uint64(newSizeMB) * 1024 * 1024
+	err := q.qmpMonitorCh.qmp.ExecQomSet(q.qmpMonitorCh.ctx, "virtiomem0", "requested-size", sizeByte)
+	if err != nil {
+		q.Logger().WithError(err).Error("failed to resize virtio-mem device")
+		return err
+	}
+	q.state.HotpluggedMemory = newSizeMB
+	return nil
+}
+
 func (q *qemu) hotplugAddMemory(memDev *MemoryDevice) (int, error) {
+	if q.config.VirtioMem {
+		newHotpluggedMB := q.state.HotpluggedMemory + memDev.SizeMB
+		if err := q.resizeVirtioMem(newHotpluggedMB); err != nil {
+			return 0, err
+		}
+		return memDev.SizeMB, nil
+	}
+
 	memoryDevices, err := q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query memory devices: %v", err)
@@ -2458,13 +2481,10 @@ func (q *qemu) ResizeMemory(ctx context.Context, reqMemMB uint32, memoryBlockSiz
 	var addMemDevice MemoryDevice
 	if q.config.VirtioMem && currentMemory != reqMemMB {
 		q.Logger().WithField("hotplug", "memory").Debugf("resize memory from %dMB to %dMB", currentMemory, reqMemMB)
-		sizeByte := uint64(reqMemMB - q.config.MemorySize)
-		sizeByte = sizeByte * 1024 * 1024
-		err := q.qmpMonitorCh.qmp.ExecQomSet(q.qmpMonitorCh.ctx, "virtiomem0", "requested-size", sizeByte)
-		if err != nil {
+		newSizeMB := int(reqMemMB) - int(q.config.MemorySize)
+		if err := q.resizeVirtioMem(newSizeMB); err != nil {
 			return 0, MemoryDevice{}, err
 		}
-		q.state.HotpluggedMemory = int(sizeByte / 1024 / 1024)
 		return reqMemMB, MemoryDevice{}, nil
 	}
 
