@@ -1005,6 +1005,57 @@ fn default_guest_swap_create_threshold_secs() -> u64 {
     60
 }
 
+/// Get host memory size in MiB.
+/// Retrieves the total physical memory of the host across different platforms.
+fn host_memory_mib() -> io::Result<u64> {
+    // Select a platform-specific implementation via a function pointer.
+    let get_memory: fn() -> io::Result<u64> = {
+        #[cfg(target_os = "linux")]
+        {
+            || {
+                let info = nix::sys::sysinfo::sysinfo().map_err(io::Error::other)?;
+                Ok(info.ram_total() / (1024 * 1024)) // MiB
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            || {
+                use sysctl::{Ctl, CtlValue, Sysctl};
+
+                let v = Ctl::new("hw.memsize")
+                    .map_err(io::Error::other)?
+                    .value()
+                    .map_err(io::Error::other)?;
+
+                let bytes = match v {
+                    CtlValue::S64(x) if x >= 0 => x as u64,
+                    other => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("unexpected sysctl hw.memsize value type: {:?}", other),
+                        ));
+                    }
+                };
+
+                Ok(bytes / (1024 * 1024)) // MiB
+            }
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            || {
+                Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "host memory query not implemented on this platform",
+                ))
+            }
+        }
+    };
+
+    get_memory()
+}
+
 impl MemoryInfo {
     /// Adjusts the configuration information after loading from a configuration file.
     ///
@@ -1017,8 +1068,7 @@ impl MemoryInfo {
             "Memory backend file {} is invalid: {}"
         )?;
 
-        let sysinfo = nix::sys::sysinfo::sysinfo()?;
-        let host_memory = sysinfo.ram_total() >> 20;
+        let host_memory = host_memory_mib()?;
 
         if u64::from(self.default_memory) > host_memory {
             self.default_memory = host_memory as u32;
