@@ -969,7 +969,6 @@ dependencies = [
  "protocols",
  "regex",
  "serde",
- "serde-transcode",
  "serde_ignored",
  "serde_json",
  "serde_yaml",
@@ -1906,9 +1905,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-src"
-version = "300.5.4+3.5.4"
+version = "300.5.5+3.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a507b3792995dae9b0df8a1c1e3771e8418b7c2d9f0baeba32e6fe8b06c7cb72"
+checksum = "3f1787d533e03597a7934fd0a765f0d28e94ecc5fb7789f8053b1e699a56f709"
 dependencies = [
  "cc",
 ]
@@ -2674,15 +2673,6 @@ name = "serde-rename-rule"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "794e44574226fc701e3be5c651feb7939038fc67fb73f6f4dd5c4ba90fd3be70"
-
-[[package]]
-name = "serde-transcode"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590c0e25c2a5bb6e85bf5c1bce768ceb86b316e7a01bdf07d2cb4ec2271990e2"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "serde_derive"
