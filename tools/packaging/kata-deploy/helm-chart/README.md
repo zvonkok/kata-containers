@@ -129,6 +129,8 @@ All values can be overridden with --set key=value or a custom `-f myvalues.yaml`
 | `imagePullSecrets` | Enable pulling from a private registry via pull secret | `""` |
 | `image.reference` | Fully qualified image reference | `quay.io/kata-containers/kata-deploy` |
 | `image.tag` | Tag of the image reference | `""` |
+| `kubectlImage.reference` | Fully qualified `kubectl` image reference | `quay.io/kata-containers/kubectl` |
+| `kubectlImage.tag` | Tag of the `kubectl` image reference | `latest` |
 | `k8sDistribution` | Set the k8s distribution to use: `k8s`, `k0s`, `k3s`, `rke2`, `microk8s` | `k8s` |
 | `nodeSelector` | Node labels for pod assignment. Allows restricting deployment to specific nodes | `{}` |
 | `runtimeClasses.enabled` | Enable Helm-managed `runtimeClass` creation (recommended) | `true` |
