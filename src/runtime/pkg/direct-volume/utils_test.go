@@ -56,7 +56,7 @@ func TestAdd(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestRecordSandboxId(t *testing.T) {
+func TestRecordSandboxID(t *testing.T) {
 	var err error
 	kataDirectVolumeRootPath = t.TempDir()
 
@@ -73,22 +73,22 @@ func TestRecordSandboxId(t *testing.T) {
 	// Add the mount info
 	assert.Nil(t, Add(volumePath, string(buf)))
 
-	sandboxId := uuid.Generate().String()
-	err = RecordSandboxId(sandboxId, volumePath)
+	sandboxID := uuid.Generate().String()
+	err = RecordSandboxID(sandboxID, volumePath)
 	assert.Nil(t, err)
 
-	id, err := GetSandboxIdForVolume(volumePath)
+	id, err := GetSandboxIDForVolume(volumePath)
 	assert.Nil(t, err)
-	assert.Equal(t, sandboxId, id)
+	assert.Equal(t, sandboxID, id)
 }
 
-func TestRecordSandboxIdNoMountInfoFile(t *testing.T) {
+func TestRecordSandboxIDNoMountInfoFile(t *testing.T) {
 	var err error
 	kataDirectVolumeRootPath = t.TempDir()
 
 	var volumePath = "/a/b/c"
-	sandboxId := uuid.Generate().String()
-	err = RecordSandboxId(sandboxId, volumePath)
+	sandboxID := uuid.Generate().String()
+	err = RecordSandboxID(sandboxID, volumePath)
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, os.ErrNotExist))
 }

@@ -431,15 +431,16 @@ func (q *qemu) buildDevices(ctx context.Context, kernelPath string) ([]govmmQemu
 		return nil, nil, nil, err
 	}
 
-	if assetType == types.ImageAsset {
+	switch assetType {
+	case types.ImageAsset:
 		devices, err = q.arch.appendImage(ctx, devices, assetPath)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-	} else if assetType == types.InitrdAsset {
+	case types.InitrdAsset:
 		// InitrdAsset, need to set kernel initrd path
 		kernel.InitrdPath = assetPath
-	} else if assetType == types.SecureBootAsset {
+	case types.SecureBootAsset:
 		// SecureBootAsset, no need to set image or initrd path
 		q.Logger().Info("For IBM Z Secure Execution, initrd path should not be set")
 		kernel.InitrdPath = ""
@@ -621,7 +622,7 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 	// memory.
 	if q.config.SharedFS == config.VirtioFS || q.config.SharedFS == config.VirtioFSNydus ||
 		q.config.FileBackedMemRootDir != "" {
-		if !(q.config.BootToBeTemplate || q.config.BootFromTemplate) {
+		if !q.config.BootToBeTemplate && !q.config.BootFromTemplate {
 			q.setupFileBackedMem(&knobs, &memory)
 		} else {
 			return errors.New("VM templating has been enabled with either virtio-fs or file backed memory and this configuration will not work")
@@ -1914,11 +1915,12 @@ func (q *qemu) hotplugVFIODevice(ctx context.Context, device *config.VFIODev, op
 		// In case HotplugVFIOOnRootBus is true, devices are hotplugged on the root bus
 		// for pc machine type instead of bridge. This is useful for devices that require
 		// a large PCI BAR which is a currently a limitation with PCI bridges.
-		if q.state.HotPlugVFIO == config.RootPort {
+		switch q.state.HotPlugVFIO {
+		case config.RootPort:
 			err = q.hotplugVFIODeviceRootPort(ctx, device)
-		} else if q.state.HotPlugVFIO == config.SwitchPort {
+		case config.SwitchPort:
 			err = q.hotplugVFIODeviceSwitchPort(ctx, device)
-		} else if q.state.HotPlugVFIO == config.BridgePort {
+		case config.BridgePort:
 			err = q.hotplugVFIODeviceBridgePort(ctx, device)
 		}
 		if err != nil {

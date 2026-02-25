@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"context"
+
 	persistapi "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/persist/api"
 	pbTypes "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/agent/protocols"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/agent/protocols/grpc"
@@ -260,14 +261,14 @@ func (n *mockAgent) resizeGuestVolume(ctx context.Context, volumeGuestPath strin
 	return nil
 }
 
-func (k *mockAgent) getIPTables(ctx context.Context, isIPv6 bool) ([]byte, error) {
+func (n *mockAgent) getIPTables(ctx context.Context, isIPv6 bool) ([]byte, error) {
 	return nil, nil
 }
 
-func (k *mockAgent) setIPTables(ctx context.Context, isIPv6 bool, data []byte) error {
+func (n *mockAgent) setIPTables(ctx context.Context, isIPv6 bool, data []byte) error {
 	return nil
 }
 
-func (k *mockAgent) setPolicy(ctx context.Context, policy string) error {
+func (n *mockAgent) setPolicy(ctx context.Context, policy string) error {
 	return nil
 }

@@ -97,10 +97,7 @@ func newQemuArch(config HypervisorConfig) (qemuArch, error) {
 		return nil, fmt.Errorf("unrecognised machinetype: %v", machineType)
 	}
 
-	factory := false
-	if config.BootToBeTemplate || config.BootFromTemplate {
-		factory = true
-	}
+	factory := config.BootToBeTemplate || config.BootFromTemplate
 
 	// IOMMU and Guest Protection require a split IRQ controller for handling interrupts
 	// otherwise QEMU won't be able to create the kernel irqchip
@@ -141,9 +138,9 @@ func newQemuArch(config HypervisorConfig) (qemuArch, error) {
 			return nil, err
 		}
 
-		if !q.qemuArchBase.disableNvdimm {
+		if !q.disableNvdimm {
 			hvLogger.WithField("subsystem", "qemuAmd64").Warn("Nvdimm is not supported with confidential guest, disabling it.")
-			q.qemuArchBase.disableNvdimm = true
+			q.disableNvdimm = true
 		}
 	}
 

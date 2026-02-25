@@ -126,7 +126,7 @@ var resizeCommand = cli.Command{
 
 // Stats retrieves the filesystem stats of the direct volume inside the guest.
 func Stats(volumePath string) ([]byte, error) {
-	sandboxId, err := volume.GetSandboxIdForVolume(volumePath)
+	sandboxID, err := volume.GetSandboxIDForVolume(volumePath)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +136,8 @@ func Stats(volumePath string) ([]byte, error) {
 	}
 
 	urlSafeDevicePath := url.PathEscape(volumeMountInfo.Device)
-	body, err := shimclient.DoGet(sandboxId, defaultTimeout,
-		fmt.Sprintf("%s?%s=%s", containerdshim.DirectVolumeStatUrl, containerdshim.DirectVolumePathKey, urlSafeDevicePath))
+	body, err := shimclient.DoGet(sandboxID, defaultTimeout,
+		fmt.Sprintf("%s?%s=%s", containerdshim.DirectVolumeStatURL, containerdshim.DirectVolumePathKey, urlSafeDevicePath))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func Stats(volumePath string) ([]byte, error) {
 
 // Resize resizes a direct volume inside the guest.
 func Resize(volumePath string, size uint64) error {
-	sandboxId, err := volume.GetSandboxIdForVolume(volumePath)
+	sandboxID, err := volume.GetSandboxIDForVolume(volumePath)
 	if err != nil {
 		return err
 	}
@@ -163,5 +163,5 @@ func Resize(volumePath string, size uint64) error {
 	if err != nil {
 		return err
 	}
-	return shimclient.DoPost(sandboxId, defaultTimeout, containerdshim.DirectVolumeResizeUrl, "application/json", encoded)
+	return shimclient.DoPost(sandboxID, defaultTimeout, containerdshim.DirectVolumeResizeURL, "application/json", encoded)
 }

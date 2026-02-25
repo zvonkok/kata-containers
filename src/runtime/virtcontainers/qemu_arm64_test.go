@@ -122,6 +122,7 @@ func TestQemuArm64AppendImage(t *testing.T) {
 			ID:       "mem0",
 			MemPath:  f.Name(),
 			Size:     (uint64)(imageStat.Size()),
+			ReadOnly: true,
 		},
 	}
 
