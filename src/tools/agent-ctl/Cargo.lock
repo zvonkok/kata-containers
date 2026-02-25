@@ -2423,10 +2423,8 @@ dependencies = [
  "libc",
  "logging",
  "nix 0.26.4",
- "oci-spec",
  "path-clean",
  "persist",
- "protobuf",
  "protocols",
  "qapi",
  "qapi-qmp",
@@ -2437,7 +2435,6 @@ dependencies = [
  "seccompiler",
  "serde",
  "serde_json",
- "shim-interface",
  "slog",
  "slog-scope",
  "tests_utils",
@@ -3715,11 +3712,9 @@ dependencies = [
  "async-trait",
  "kata-sys-util",
  "kata-types",
- "libc",
  "safe-path 0.1.0",
  "serde",
  "serde_json",
- "shim-interface",
 ]
 
 [[package]]
@@ -5243,19 +5238,6 @@ checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest 0.10.7",
  "keccak",
-]
-
-[[package]]
-name = "shim-interface"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hyper 0.14.32",
- "hyperlocal",
- "kata-sys-util",
- "kata-types",
- "nix 0.26.4",
- "tokio",
 ]
 
 [[package]]

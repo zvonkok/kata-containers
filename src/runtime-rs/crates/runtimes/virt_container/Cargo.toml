@@ -10,8 +10,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 awaitgroup = "0.6.0"
 containerd-shim-protos = { workspace = true }
-futures = "0.3.19"
-lazy_static = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
 protobuf = { workspace = true }
@@ -21,9 +19,7 @@ serde_json = { workspace = true }
 slog = { workspace = true }
 slog-scope = { workspace = true }
 tokio = { workspace = true }
-toml = "0.4.2"
 url = { workspace = true }
-async-std = "1.12.0"
 tracing = { workspace = true }
 oci-spec = { workspace = true }
 strum = { workspace = true }
@@ -48,3 +44,7 @@ cloud-hypervisor = ["hypervisor/cloud-hypervisor"]
 
 # Enable the build-in VMM Dragtonball
 dragonball = ["hypervisor/dragonball"]
+
+
+[package.metadata.cargo-machete]
+ignored = ["slog-scope"]

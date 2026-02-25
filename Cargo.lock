@@ -44,9 +44,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "futures 0.1.31",
  "kata-types",
- "log",
  "logging",
  "nix 0.26.4",
  "oci-spec 0.8.3",
@@ -141,21 +139,10 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "435a87a52755b8f27fcf321ac4f04b2802e337c8c4872923137471ec39c37532"
 dependencies = [
- "event-listener 5.4.1",
+ "event-listener",
  "event-listener-strategy",
  "futures-core",
  "pin-project-lite",
-]
-
-[[package]]
-name = "async-channel"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
-dependencies = [
- "concurrent-queue",
- "event-listener 2.5.3",
- "futures-core",
 ]
 
 [[package]]
@@ -185,21 +172,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-global-executor"
-version = "2.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05b1b633a2115cd122d73b955eadd9916c18c8f510ec9cd1686404c60ad1c29c"
-dependencies = [
- "async-channel 2.5.0",
- "async-executor",
- "async-io",
- "async-lock",
- "blocking",
- "futures-lite",
- "once_cell",
-]
-
-[[package]]
 name = "async-io"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -223,7 +195,7 @@ version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fd03604047cee9b6ce9de9f70c6cd540a0520c813cbd49bae61f33ab80ed1dc"
 dependencies = [
- "event-listener 5.4.1",
+ "event-listener",
  "event-listener-strategy",
  "pin-project-lite",
 ]
@@ -234,14 +206,14 @@ version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc50921ec0055cdd8a16de48773bfeec5c972598674347252c0399676be7da75"
 dependencies = [
- "async-channel 2.5.0",
+ "async-channel",
  "async-io",
  "async-lock",
  "async-signal",
  "async-task",
  "blocking",
  "cfg-if 1.0.0",
- "event-listener 5.4.1",
+ "event-listener",
  "futures-lite",
  "rustix 1.1.2",
 ]
@@ -273,32 +245,6 @@ dependencies = [
  "signal-hook-registry",
  "slab",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "async-std"
-version = "1.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c8e079a4ab67ae52b7403632e4618815d6db36d2a010cfe41b02c1b1578f93b"
-dependencies = [
- "async-channel 1.9.0",
- "async-global-executor",
- "async-io",
- "async-lock",
- "crossbeam-utils",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-lite",
- "gloo-timers",
- "kv-log-macro",
- "log",
- "memchr",
- "once_cell",
- "pin-project-lite",
- "pin-utils",
- "slab",
- "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -447,7 +393,7 @@ version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e83f8d02be6967315521be875afa792a316e28d57b5a2d401897e2a7921b7f21"
 dependencies = [
- "async-channel 2.5.0",
+ "async-channel",
  "async-task",
  "futures-io",
  "futures-lite",
@@ -644,21 +590,15 @@ dependencies = [
  "containerd-shim-protos",
  "kata-sys-util",
  "kata-types",
- "lazy_static",
  "nix 0.26.4",
  "oci-spec 0.8.3",
- "persist",
  "protobuf",
  "protocols",
  "resource",
  "runtime-spec",
- "serde_json",
- "slog",
- "slog-scope",
  "strum 0.24.1",
  "thiserror 1.0.48",
  "tokio",
- "ttrpc",
 ]
 
 [[package]]
@@ -705,7 +645,7 @@ dependencies = [
  "async-trait",
  "cgroups-rs 0.3.4",
  "containerd-shim-protos",
- "futures 0.3.28",
+ "futures",
  "go-flag",
  "lazy_static",
  "libc",
@@ -1401,12 +1341,6 @@ dependencies = [
 
 [[package]]
 name = "event-listener"
-version = "2.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
-
-[[package]]
-name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13b66accf52311f30a0db42147dadea9850cb48cd070028831ae5f5d4b856ab"
@@ -1422,7 +1356,7 @@ version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
- "event-listener 5.4.1",
+ "event-listener",
  "pin-project-lite",
 ]
 
@@ -1549,12 +1483,6 @@ dependencies = [
  "vm-memory",
  "vmm-sys-util 0.11.1",
 ]
-
-[[package]]
-name = "futures"
-version = "0.1.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
 
 [[package]]
 name = "futures"
@@ -1714,18 +1642,6 @@ name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
-
-[[package]]
-name = "gloo-timers"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
-dependencies = [
- "futures-channel",
- "futures-core",
- "js-sys",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "go-flag"
@@ -1962,7 +1878,7 @@ dependencies = [
  "crossbeam-channel",
  "dbs-utils",
  "dragonball",
- "futures 0.3.28",
+ "futures",
  "go-flag",
  "hyper",
  "hyperlocal",
@@ -1973,10 +1889,8 @@ dependencies = [
  "libc",
  "logging",
  "nix 0.26.4",
- "oci-spec 0.8.3",
  "path-clean",
  "persist",
- "protobuf",
  "protocols",
  "qapi",
  "qapi-qmp",
@@ -1988,7 +1902,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test 2.0.0",
- "shim-interface",
  "slog",
  "slog-scope",
  "tempfile",
@@ -2309,16 +2222,7 @@ dependencies = [
  "sysctl",
  "sysinfo",
  "thiserror 1.0.48",
- "toml 0.5.11",
-]
-
-[[package]]
-name = "kv-log-macro"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
-dependencies = [
- "log",
+ "toml",
 ]
 
 [[package]]
@@ -2639,7 +2543,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b65d130ee111430e47eed7896ea43ca693c387f097dd97376bffafbf25812128"
 dependencies = [
  "bytes",
- "futures 0.3.28",
+ "futures",
  "log",
  "netlink-packet-core",
  "netlink-sys",
@@ -2653,7 +2557,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "416060d346fbaf1f23f9512963e3e878f1a78e707cb699ba9215761754244307"
 dependencies = [
  "bytes",
- "futures 0.3.28",
+ "futures",
  "libc",
  "log",
  "tokio",
@@ -2810,7 +2714,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "toml 0.5.11",
+ "toml",
 ]
 
 [[package]]
@@ -3037,7 +2941,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e785d273968748578931e4dc3b4f5ec86b26e09d9e0d66b55adda7fce742f7a"
 dependencies = [
  "async-trait",
- "futures 0.3.28",
+ "futures",
  "futures-executor",
  "headers",
  "http",
@@ -3205,11 +3109,9 @@ dependencies = [
  "async-trait",
  "kata-sys-util",
  "kata-types",
- "libc",
  "safe-path 0.1.0",
  "serde",
  "serde_json",
- "shim-interface",
 ]
 
 [[package]]
@@ -3619,7 +3521,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b047adab56acc4948d4b9b58693c1f33fd13efef2d6bb5f0f66a47436ceada8"
 dependencies = [
  "bytes",
- "futures 0.3.28",
+ "futures",
  "log",
  "memchr",
  "qapi-qmp",
@@ -3901,11 +3803,10 @@ dependencies = [
  "agent",
  "anyhow",
  "async-trait",
- "bitflags 2.10.0",
  "byte-unit",
  "cgroups-rs 0.5.0",
  "flate2",
- "futures 0.3.28",
+ "futures",
  "hex",
  "hypervisor",
  "inotify",
@@ -3915,7 +3816,6 @@ dependencies = [
  "libc",
  "logging",
  "netlink-packet-route",
- "netlink-sys",
  "netns-rs",
  "nix 0.26.4",
  "oci-spec 0.8.3",
@@ -4000,7 +3900,6 @@ dependencies = [
  "common",
  "containerd-shim-protos",
  "go-flag",
- "logging",
  "nix 0.26.4",
  "runtimes",
  "shim",
@@ -4024,7 +3923,6 @@ dependencies = [
  "anyhow",
  "common",
  "hyper",
- "hyperlocal",
  "hypervisor",
  "kata-sys-util",
  "kata-types",
@@ -4343,7 +4241,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c789ec87f4687d022a2405cf46e0cd6284889f1839de292cadeb6c6019506f2"
 dependencies = [
  "dashmap",
- "futures 0.3.28",
+ "futures",
  "lazy_static",
  "log",
  "parking_lot",
@@ -4357,7 +4255,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
 dependencies = [
  "dashmap",
- "futures 0.3.28",
+ "futures",
  "lazy_static",
  "log",
  "parking_lot",
@@ -4397,12 +4295,10 @@ dependencies = [
  "containerd-shim-protos",
  "kata-types",
  "logging",
- "persist",
  "runtimes",
  "slog",
  "slog-scope",
  "tokio",
- "tracing",
  "ttrpc",
 ]
 
@@ -4466,9 +4362,7 @@ dependencies = [
  "nix 0.26.4",
  "oci-spec 0.8.3",
  "protobuf",
- "rand 0.8.5",
  "runtime-spec",
- "runtimes",
  "serial_test 0.10.0",
  "service",
  "sha2 0.10.9",
@@ -4477,11 +4371,8 @@ dependencies = [
  "slog-scope",
  "slog-stdlog",
  "tempfile",
- "tests_utils",
  "thiserror 1.0.48",
  "tokio",
- "tracing",
- "tracing-opentelemetry",
  "unix_socket2",
 ]
 
@@ -4491,7 +4382,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common",
- "logging",
  "runtimes",
  "tokio",
 ]
@@ -5089,19 +4979,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52a15c15b1bc91f90902347eff163b5b682643aff0c8e972912cca79bd9208dd"
 dependencies = [
  "bytes",
- "futures 0.3.28",
+ "futures",
  "libc",
  "tokio",
  "vsock",
-]
-
-[[package]]
-name = "toml"
-version = "0.4.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "758664fc71a3a69038656bee8b6be6477d2a6c315a6b81f7081f591bffa4111f"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -5246,7 +5127,7 @@ dependencies = [
  "async-trait",
  "byteorder",
  "crossbeam",
- "futures 0.3.28",
+ "futures",
  "home",
  "libc",
  "log",
@@ -5448,16 +5329,13 @@ version = "0.1.0"
 dependencies = [
  "agent",
  "anyhow",
- "async-std",
  "async-trait",
  "awaitgroup",
  "common",
  "containerd-shim-protos",
- "futures 0.3.28",
  "hypervisor",
  "kata-sys-util",
  "kata-types",
- "lazy_static",
  "libc",
  "logging",
  "nix 0.26.4",
@@ -5473,7 +5351,6 @@ dependencies = [
  "slog-scope",
  "strum 0.24.1",
  "tokio",
- "toml 0.4.10",
  "tracing",
  "url",
  "uuid 1.18.1",
@@ -6106,7 +5983,7 @@ dependencies = [
  "async-trait",
  "blocking",
  "enumflags2",
- "event-listener 5.4.1",
+ "event-listener",
  "futures-core",
  "futures-lite",
  "hex",

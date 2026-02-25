@@ -36,8 +36,6 @@ slog-stdlog = "4.1.0"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 unix_socket2 = "0.5.4"
-tracing = { workspace = true }
-tracing-opentelemetry = { workspace = true }
 oci-spec = { workspace = true }
 
 # Local dependencies
@@ -46,12 +44,7 @@ kata-sys-util = { workspace = true }
 logging = { workspace = true }
 runtime-spec = { workspace = true }
 service = { workspace = true }
-runtimes = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-rand = { workspace = true }
 serial_test = "0.10.0"
-
-# Local dev-dependencies
-tests_utils = { workspace = true }
