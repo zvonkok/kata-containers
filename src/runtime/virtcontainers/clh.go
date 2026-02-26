@@ -587,6 +587,11 @@ func (clh *cloudHypervisor) CreateVM(ctx context.Context, id string, network Net
 	// Set initial amount of cpu's for the virtual machine
 	clh.vmconfig.Cpus = chclient.NewCpusConfig(int32(clh.config.NumVCPUs()), int32(clh.config.DefaultMaxVCPUs))
 
+	if pathExists("/dev/mshv") {
+		// The nested property is true by default, but is not supported yet on MSHV.
+		clh.vmconfig.Cpus.SetNested(false)
+	}
+
 	disableNvdimm := true
 	enableDax := false
 
@@ -613,6 +618,7 @@ func (clh *cloudHypervisor) CreateVM(ctx context.Context, id string, network Net
 		disk := chclient.NewDiskConfig()
 		disk.Path = &assetPath
 		disk.SetReadonly(true)
+		disk.SetImageType("Raw")
 
 		diskRateLimiterConfig := clh.getDiskRateLimiterConfig()
 		if diskRateLimiterConfig != nil {
@@ -902,6 +908,7 @@ func (clh *cloudHypervisor) addInitdataDisk(initdataImage string) {
 		disk.Direct = &clh.config.BlockDeviceCacheDirect
 	}
 	disk.SetIommu(clh.config.IOMMU)
+	disk.SetImageType("Raw")
 
 	if rl := clh.getDiskRateLimiterConfig(); rl != nil {
 		disk.SetRateLimiterConfig(*rl)
@@ -940,6 +947,7 @@ func (clh *cloudHypervisor) hotplugAddBlockDevice(drive *config.BlockDrive) erro
 	clhDisk := *chclient.NewDiskConfig()
 	clhDisk.Path = &drive.File
 	clhDisk.Readonly = &drive.ReadOnly
+	clhDisk.SetImageType("Raw")
 	clhDisk.VhostUser = func(b bool) *bool { return &b }(false)
 	if clh.config.BlockDeviceCacheSet {
 		clhDisk.Direct = &clh.config.BlockDeviceCacheDirect
@@ -1927,5 +1935,12 @@ func (clh *cloudHypervisor) vmInfo() (chclient.VmInfo, error) {
 }
 
 func (clh *cloudHypervisor) IsRateLimiterBuiltin() bool {
+	return true
+}
+
+func pathExists(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		return false
+	}
 	return true
 }
