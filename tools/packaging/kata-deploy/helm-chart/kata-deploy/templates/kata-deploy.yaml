@@ -133,7 +133,7 @@ spec:
       terminationGracePeriodSeconds: 120
       containers:
       - name: kube-kata
-        image: {{ .Values.image.reference }}:{{ default .Chart.AppVersion .Values.image.tag }}
+        image: {{ include "kata-deploy.image" . }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         command: ["/usr/bin/kata-deploy", "install"]
         env:

@@ -42,7 +42,7 @@ spec:
       serviceAccountName: {{ include "kata-deploy.fullname" . }}-verification
       containers:
         - name: verify
-          image: {{ .Values.kubectlImage.reference }}:{{ .Values.kubectlImage.tag }}
+          image: {{ include "kata-deploy.kubectlImage" . }}
           command:
             - bash
             - -c
