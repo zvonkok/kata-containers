@@ -11,20 +11,14 @@ license = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 containerd-shim-protos = { workspace = true, features = ["sandbox"] }
-lazy_static = { workspace = true }
 nix = { workspace = true }
 protobuf = { workspace = true }
-serde_json = { workspace = true }
-slog = { workspace = true }
-slog-scope = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "process", "fs"] }
-ttrpc = { workspace = true }
 oci-spec = { workspace = true }
 
 # Local dependencies
-persist = { workspace = true }
 agent = { workspace = true }
 kata-sys-util = { workspace = true }
 kata-types = { workspace = true }

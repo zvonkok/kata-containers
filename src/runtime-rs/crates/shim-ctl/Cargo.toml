@@ -9,9 +9,8 @@ license = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-tokio = { workspace = true, features = [ "rt", "rt-multi-thread" ] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 
 # Local dependencies
 common = { workspace = true }
-logging = { workspace = true }
 runtimes = { workspace = true }

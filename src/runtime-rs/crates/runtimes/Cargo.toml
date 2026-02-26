@@ -26,7 +26,6 @@ opentelemetry-jaeger = { version = "0.17.0", features = [
 ] }
 tracing-subscriber = { version = "0.3", features = ["registry", "std"] }
 hyper = { workspace = true, features = ["stream", "server", "http1"] }
-hyperlocal = { workspace = true }
 serde_json = { workspace = true }
 nix = "0.25.0"
 url = { workspace = true }

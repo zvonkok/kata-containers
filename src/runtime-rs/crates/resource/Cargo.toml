@@ -15,7 +15,6 @@ test-utils = { workspace = true }
 actix-rt = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bitflags = "2.9.0"
 byte-unit = "5.1.6"
 cgroups-rs = { version = "0.5.0", features = ["oci"] }
 futures = "0.3.11"
@@ -41,7 +40,6 @@ hex = "0.4"
 
 ## Dependencies from `rust-netlink`
 netlink-packet-route = "0.26"
-netlink-sys = "0.8"
 rtnetlink = "0.19"
 
 # Local dependencies
@@ -54,3 +52,7 @@ persist = { workspace = true }
 tests_utils = { workspace = true }
 
 [features]
+
+
+[package.metadata.cargo-machete]
+ignored = ["slog-scope"]
