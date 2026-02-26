@@ -1674,6 +1674,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-as-inner"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
 name = "enumflags2"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2879,6 +2891,7 @@ dependencies = [
  "glob",
  "hex",
  "lazy_static",
+ "nix 0.26.4",
  "num_cpus",
  "oci-spec",
  "regex",
@@ -2889,6 +2902,7 @@ dependencies = [
  "sha2 0.10.9",
  "slog",
  "slog-scope",
+ "sysctl",
  "sysinfo",
  "thiserror 1.0.40",
  "toml 0.5.11",
@@ -5582,6 +5596,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "sysctl"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cca424247104946a59dacd27eaad296223b7feec3d168a6dd04585183091eb0b"
+dependencies = [
+ "bitflags 2.6.0",
+ "byteorder",
+ "enum-as-inner",
+ "libc",
+ "thiserror 2.0.12",
+ "walkdir",
 ]
 
 [[package]]
