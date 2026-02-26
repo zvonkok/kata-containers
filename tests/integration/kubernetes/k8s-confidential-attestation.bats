@@ -162,7 +162,7 @@ setup() {
 		--mode=snp
 		--vcpus="${vcpu_count}"
 		--vcpu-type=EPYC-v4
-		--output-format=base64
+		--output-format=hex
 		--ovmf="${firmware_path}"
 		--kernel="${kernel_path}"
 		--append="${append}"
