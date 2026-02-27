@@ -8,12 +8,14 @@
 package virtcontainers
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -824,4 +826,377 @@ func TestPrepareInitdataImage(t *testing.T) {
 			}
 		})
 	}
+}
+
+// startTestQMPServer starts a goroutine acting as a minimal QMP server on serverConn.
+// It sends the QMP hello banner and responds to commands with the given responses
+// (one response string per command, in order). After all responses are sent,
+// it keeps the connection open until the client closes it.
+func startTestQMPServer(t *testing.T, serverConn net.Conn, responses []string) {
+	t.Helper()
+	go func() {
+		defer serverConn.Close()
+		hello := `{"QMP":{"version":{"qemu":{"micro":0,"minor":0,"major":5},"package":""},"capabilities":[]}}` + "\n"
+		if _, err := serverConn.Write([]byte(hello)); err != nil {
+			return
+		}
+		scanner := bufio.NewScanner(serverConn)
+		for _, resp := range responses {
+			if !scanner.Scan() {
+				return
+			}
+			if _, err := serverConn.Write([]byte(resp + "\n")); err != nil {
+				return
+			}
+		}
+		// Keep reading (and ignoring) any additional commands to keep connection alive
+		for scanner.Scan() {
+		}
+	}()
+}
+
+// TestHotplugAddMemoryVirtioMem verifies that when VirtioMem is enabled,
+// hotplugAddMemory resizes the existing virtio-mem device via qom-set
+// instead of adding a new pc-dimm, and updates HotpluggedMemory on success.
+func TestHotplugAddMemoryVirtioMem(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	startTestQMPServer(t, serverConn, []string{`{"return":{}}`})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: true,
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: 128}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.NoError(err)
+	assert.Equal(128, n)
+	// HotpluggedMemory should reflect the cumulative total: initial 100 + added 128
+	assert.Equal(228, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryVirtioMemMultipleOperations verifies that
+// multiple virtio-mem resize operations accumulate correctly.
+func TestHotplugAddMemoryVirtioMemMultipleOperations(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	// Three successful resize operations
+	responses := []string{
+		`{"return":{}}`,
+		`{"return":{}}`,
+		`{"return":{}}`,
+	}
+	startTestQMPServer(t, serverConn, responses)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: true,
+		},
+		state: QemuState{
+			HotpluggedMemory: 0,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	// First resize: 0 -> 128MB
+	memDev1 := &MemoryDevice{SizeMB: 128}
+	n, err := q.hotplugAddMemory(memDev1)
+	assert.NoError(err)
+	assert.Equal(128, n)
+	assert.Equal(128, q.state.HotpluggedMemory)
+
+	// Second resize: 128 -> 384MB
+	memDev2 := &MemoryDevice{SizeMB: 256}
+	n, err = q.hotplugAddMemory(memDev2)
+	assert.NoError(err)
+	assert.Equal(256, n)
+	assert.Equal(384, q.state.HotpluggedMemory)
+
+	// Third resize: 384 -> 896MB
+	memDev3 := &MemoryDevice{SizeMB: 512}
+	n, err = q.hotplugAddMemory(memDev3)
+	assert.NoError(err)
+	assert.Equal(512, n)
+	assert.Equal(896, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryVirtioMemZeroSize verifies behavior
+// when attempting to add zero memory with virtio-mem.
+func TestHotplugAddMemoryVirtioMemZeroSize(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	startTestQMPServer(t, serverConn, []string{`{"return":{}}`})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: true,
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: 0}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.NoError(err)
+	assert.Equal(0, n)
+	// State should remain unchanged
+	assert.Equal(100, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryVirtioMemError verifies that on a QMP failure
+// the error is propagated and HotpluggedMemory is not updated.
+func TestHotplugAddMemoryVirtioMemError(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	startTestQMPServer(t, serverConn, []string{`{"error":{"class":"GenericError","desc":"test error"}}`})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: true,
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: 128}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.Error(err)
+	assert.Equal(0, n)
+	// HotpluggedMemory must not be updated when the QMP command fails
+	assert.Equal(100, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryDIMM verifies the traditional DIMM-based hotplug path
+// when VirtioMem is disabled. It should query existing memory devices,
+// allocate a new slot, and hotplug the DIMM.
+func TestHotplugAddMemoryDIMM(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	// Responses: query-memory-devices, object-add, device_add
+	responses := []string{
+		`{"return":[]}`, // query-memory-devices: empty
+		`{"return":{}}`, // object-add: success
+		`{"return":{}}`, // device_add: success
+	}
+	startTestQMPServer(t, serverConn, responses)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: false, // Traditional DIMM path
+		},
+		qemuConfig: govmmQemu.Config{
+			Knobs: govmmQemu.Knobs{
+				HugePages: false,
+			},
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: 256}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.NoError(err)
+	assert.Equal(256, n)
+	assert.Equal(0, memDev.Slot) // Should get slot 0 when no devices exist
+	assert.Equal(356, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryDIMMHotplugError verifies error handling
+// when the actual hotplug operation fails.
+func TestHotplugAddMemoryDIMMHotplugError(t *testing.T) {
+	assert := assert.New(t)
+
+	serverConn, clientConn := net.Pipe()
+	// Responses: query-memory-devices succeeds, object-add fails
+	responses := []string{
+		`{"return":[]}`, // query-memory-devices: success
+		`{"error":{"class":"GenericError","desc":"hotplug failed"}}`, // object-add: fails
+	}
+	startTestQMPServer(t, serverConn, responses)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	disconnectedCh := make(chan struct{})
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	qmp, _, err := govmmQemu.QMPStartWithConn(ctx, clientConn, cfg, disconnectedCh)
+	assert.NoError(err)
+
+	defer func() {
+		qmp.Shutdown()
+		<-disconnectedCh
+	}()
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: false,
+		},
+		qemuConfig: govmmQemu.Config{
+			Knobs: govmmQemu.Knobs{
+				HugePages: false,
+			},
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: qmp,
+			ctx: ctx,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: 256}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.Error(err)
+	assert.Equal(0, n)
+	// HotpluggedMemory should not be updated on error
+	assert.Equal(100, q.state.HotpluggedMemory)
+}
+
+// TestHotplugAddMemoryVirtioMemNegativeSize verifies that
+// adding a memory device with negative size is handled gracefully.
+func TestHotplugAddMemoryVirtioMemNegativeSize(t *testing.T) {
+	assert := assert.New(t)
+
+	// No need to start a QMP server since the error should be caught
+	// before any QMP command is issued
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem: true,
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+	}
+
+	memDev := &MemoryDevice{SizeMB: -128}
+	n, err := q.hotplugAddMemory(memDev)
+	assert.EqualError(err, "cannot resize virtio-mem device to negative size (-28) memory")
+	assert.Equal(0, n)
+	// State should remain unchanged
+	assert.Equal(100, q.state.HotpluggedMemory)
+}
+
+// TestResizeMemoryVirtioMemNegativeSize verifies that
+// ResizeMemory with VirtioMem handles negative hotplug size gracefully.
+func TestResizeMemoryVirtioMemNegativeSize(t *testing.T) {
+	assert := assert.New(t)
+
+	q := &qemu{
+		config: HypervisorConfig{
+			VirtioMem:  true,
+			MemorySize: 2048, // 2GB base memory
+		},
+		state: QemuState{
+			HotpluggedMemory: 100,
+		},
+		qmpMonitorCh: qmpChannel{
+			qmp: &govmmQemu.QMP{},
+		},
+	}
+
+	// Request size less than base memory would result in negative hotplug size
+	newMem, memDev, err := q.ResizeMemory(context.Background(), 1024, 128, false)
+	assert.EqualError(err, "cannot resize virtio-mem device to negative size (-1024) memory")
+	assert.Equal(uint32(0), newMem)
+	assert.Equal(MemoryDevice{}, memDev)
+	// State should remain unchanged
+	assert.Equal(100, q.state.HotpluggedMemory)
 }
