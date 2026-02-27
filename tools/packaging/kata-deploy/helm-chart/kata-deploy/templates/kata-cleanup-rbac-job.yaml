@@ -33,7 +33,7 @@ spec:
 {{- end }}
       containers:
         - name: rb-cleanup
-          image: quay.io/kata-containers/kubectl:latest
+          image: {{ include "kata-deploy.kubectlImage" . }}
           command:
             - bash
             - -c
