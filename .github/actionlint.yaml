@@ -28,3 +28,9 @@ self-hosted-runner:
     - s390x-large
     - tdx
     - ubuntu-24.04-arm
+
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      # We use if: false to "temporarily" skip jobs with issues
+      - 'constant expression "false" in condition'
