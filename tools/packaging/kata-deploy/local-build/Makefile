@@ -32,7 +32,6 @@ BASE_TARBALLS = serial-targets \
 	qemu-tdx-experimental-tarball \
 	qemu-tarball \
 	stratovirt-tarball \
-	shim-v2-tarball \
 	virtiofsd-tarball
 BASE_SERIAL_TARBALLS = rootfs-image-tarball \
 	rootfs-image-confidential-tarball \
@@ -46,7 +45,6 @@ BASE_TARBALLS = serial-targets \
 	kernel-debug-tarball \
 	kernel-tarball \
 	qemu-tarball \
-	shim-v2-tarball \
 	virtiofsd-tarball
 BASE_SERIAL_TARBALLS = rootfs-image-tarball \
 	rootfs-initrd-tarball
@@ -57,13 +55,53 @@ BASE_TARBALLS = serial-targets \
 	kernel-tarball \
 	qemu-tarball \
 	qemu-cca-experimental-tarball \
-	shim-v2-tarball \
 	virtiofsd-tarball
 BASE_SERIAL_TARBALLS = rootfs-image-tarball \
 	rootfs-image-confidential-tarball \
 	rootfs-cca-confidential-image-tarball \
 	rootfs-cca-confidential-initrd-tarball \
 	rootfs-initrd-tarball
+endif
+
+ifeq ($(ARCH), x86_64)
+NVGPU_BASE_TARBALLS = \
+	agent-tarball \
+	busybox-tarball \
+	coco-guest-components-tarball \
+	kernel-nvidia-gpu-tarball \
+	nydus-tarball \
+	ovmf-sev-tarball \
+	ovmf-tdx-tarball \
+	ovmf-tarball \
+	pause-image-tarball \
+	qemu-snp-experimental-tarball \
+	qemu-tdx-experimental-tarball \
+	qemu-tarball \
+	virtiofsd-tarball \
+	serial-targets
+else ifeq ($(ARCH), aarch64)
+NVGPU_BASE_TARBALLS = \
+	agent-tarball \
+	busybox-tarball \
+	coco-guest-components-tarball \
+	kernel-nvidia-gpu-tarball \
+	nydus-tarball \
+	ovmf-tarball \
+	pause-image-tarball \
+	qemu-tarball \
+	virtiofsd-tarball \
+	serial-targets
+endif
+
+ifneq ($(NVGPU_BASE_TARBALLS),)
+nvgpu-tarball:
+	${MAKE} -f $(MK_PATH) kata-tarball \
+		BASE_TARBALLS="$(NVGPU_BASE_TARBALLS)" \
+		BASE_SERIAL_TARBALLS="rootfs-image-nvidia-gpu-tarball rootfs-image-nvidia-gpu-confidential-tarball" \
+		DEPS=
+else
+nvgpu-tarball:
+	@echo "nvgpu-tarball: unsupported on $(ARCH)"; exit 1
 endif
 
 define BUILD
@@ -85,10 +123,11 @@ copy-scripts-for-the-tools-build:
 
 all-parallel:
 	${MAKE} -f $(MK_PATH) all -j $(shell nproc) V=
+	${MAKE} -f $(MK_PATH) shim-v2-tarball V=
 
 all: ${BASE_TARBALLS}
 
-serial-targets:
+serial-targets: $(filter-out serial-targets,$(BASE_TARBALLS))
 	${MAKE} -f $(MK_PATH) -j 1 V= \
 	${BASE_SERIAL_TARBALLS}
 
