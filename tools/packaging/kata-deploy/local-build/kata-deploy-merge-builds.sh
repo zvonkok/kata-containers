@@ -18,7 +18,13 @@ kata_versions_yaml_file=${2:-""}
 output_tarball_name=${3:-kata-static.tar.zst}
 
 tar_path="${PWD}/${output_tarball_name}"
-kata_versions_yaml_file_path="${PWD}/${kata_versions_yaml_file}"
+# We pushd into ${kata_build_dir} below, so a relative versions.yaml path
+# would break. Anchor it to PWD if relative; leave it alone if already
+# absolute (callers like the Makefile pass $(MK_DIR)/.../versions.yaml).
+case "${kata_versions_yaml_file}" in
+	/*) kata_versions_yaml_file_path="${kata_versions_yaml_file}" ;;
+	*)  kata_versions_yaml_file_path="${PWD}/${kata_versions_yaml_file}" ;;
+esac
 
 pushd "${kata_build_dir}"
 tarball_content_dir="${PWD}/kata-tarball-content"
