@@ -50,6 +50,28 @@ nvidia_stage_one_variant() {
 stage_one="${BUILD_DIR:?}/rootfs-$(nvidia_stage_one_variant)-stage-one"
 readonly stage_one
 
+# Driver-authoritative capability-to-file map shipped with every NVIDIA driver.
+# Used during stage-two chiseling to select exactly the userspace files needed
+# for each capability instead of relying on broad filename globs.
+readonly filelist="${stage_one}/usr/share/nvidia/files.d/sandboxutils-filelist.json"
+
+# nvidia_libs_for_categories CATEGORY [CATEGORY ...]
+#
+# Query the sandboxutils filelist for 64-bit LIB-type files belonging to any of
+# the given categories. Outputs bare filenames, one per line, deduplicated.
+# 32-bit compat entries are excluded: kata runs 64-bit workloads only.
+nvidia_libs_for_categories() {
+	command -v jq > /dev/null || die "jq is required for nvidia_libs_for_categories"
+	[[ -f "${filelist}" ]] || die "sandboxutils filelist not found: ${filelist}"
+
+	jq -r \
+		'[.[] | select((.is_32bit_compat // "false") != "true")
+		       | select(.type == "LIB")
+		       | select([.category[] | IN($ARGS.positional[])] | any)
+		       | .name] | unique[]' \
+		"${filelist}" --args "$@"
+}
+
 # Image layout produced from the chiseled tree:
 #   monolith    - the full GPU image (default; unchanged behaviour)
 #   base        - driver-agnostic nvidia base (NVRC init + agent + base libs)
@@ -229,9 +251,30 @@ chisseled_compute() {
 
 	cp -aL "${stage_one}/${libdir}"/ld-linux-* "${libdir}"/.
 
+	# Copy NVIDIA userspace libraries using the driver-authoritative filelist.
+	# Categories included:
+	#   cuda          - core CUDA (libcuda, PTX JIT, NVVM, gpucomp, ...)
+	#   opencl        - OpenCL runtime
+	#   nvml          - NVML / nvidia-smi
+	#   nvpd          - nvidia-persistenced + libnvidia-cfg
+	#   nvapi         - libnvidia-api
+	#   video         - nvenc, nvdec, cuvid, opticalflow (headless ffmpeg)
+	#   nvsandboxutils - libnvidia-sandboxutils (used by nvidia-ctk)
+	#
+	# Graphics categories (egl*, glx, vulkan, ngx, optix, gbm, utils,
+	# xdriver) are intentionally excluded: kata runs headless compute
+	# workloads only and ships no display stack.
 	libdir=usr/lib/"${machine_arch}"-linux-gnu
-	cp -a "${stage_one}/${libdir}"/libnv*        lib/"${machine_arch}"-linux-gnu/.
-	cp -a "${stage_one}/${libdir}"/libcuda.so.*       lib/"${machine_arch}"-linux-gnu/.
+	destdir=lib/"${machine_arch}"-linux-gnu
+	while IFS= read -r lib; do
+		# libnvidia-pkcs11* is in the cuda category but only required for
+		# confidential builds (PKCS11/HSM attestation interface).
+		if [[ "${type}" != "confidential" ]] && [[ "${lib}" == libnvidia-pkcs11* ]]; then
+			continue
+		fi
+		src="${stage_one}/${libdir}/${lib}"
+		[[ -e "${src}" ]] && cp -a "${src}" "${destdir}/."
+	done < <(nvidia_libs_for_categories cuda opencl nvml nvpd nvapi video nvsandboxutils)
 
 	# basic GPU admin tools
 	cp -a "${stage_one}"/usr/bin/nvidia-persistenced  bin/.
@@ -447,12 +490,10 @@ readonly nvidia_gpu_extension_bins=(
 # GPU shared-library globs (inside the multiarch lib dir, plus libgrpc_mgr in
 # /lib) owned by the gpu extension.
 #
-# 'libnv*' is deliberately broad: the NVIDIA userspace ships many libraries that
-# start with libnv but not libnvidia- (libnvcuvid, libnvrtc, libnvidia-*,
-# libnvoptix, libnvToolsExt, ...), and we want all of them in the extension. This
-# is safe because the source tree is a chiseled rootfs that only contains what the
-# NVIDIA driver/CUDA install puts there - there is no unrelated libnv* (e.g. an
-# NVMe libnvme) to accidentally sweep in.
+# The chiseled rootfs is now built from the driver-authoritative filelist via
+# nvidia_libs_for_categories(), so only the libs needed for headless compute
+# workloads are present. The globs below therefore match exactly what was
+# selected by the filelist — no graphics or display libs can be swept in.
 readonly nvidia_gpu_extension_lib_globs=(
 	'libnv*'
 	'libcuda.so*'
